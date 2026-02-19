@@ -103,12 +103,16 @@ canvas{display:block}
         <div id="alt-note"></div>
       </div>
       <div class="ctrl-section">
-        <label>Speed</label>
+        <label>Day Rotation</label>
         <div class="ctrl-row">
-          <button class="cbtn active" data-sp="day">Day</button>
-          <button class="cbtn" data-sp="season">Seasons</button>
+          <button class="cbtn active" data-sp="day">Play</button>
           <button class="cbtn" data-sp="pause">Pause</button>
         </div>
+      </div>
+      <div class="ctrl-section">
+        <label>Season / Day of Year</label>
+        <input type="range" id="doy-slider" min="0" max="364" step="1" value="0">
+        <div class="ctrl-val" id="doy-val">Jan 1</div>
       </div>
       <div class="ctrl-section">
         <label>Frame</label>
@@ -276,7 +280,7 @@ function limbAirMass(htKm){
 function limbTransmittance(htKm){
   if(htKm<0)return 0;
   const am=limbAirMass(htKm);
-  if(am>50)return 0;if(am<1e-4)return 1;
+  if(am<1e-4)return 1;
   return Math.pow(0.7,Math.pow(am,0.678));
 }
 
@@ -291,7 +295,7 @@ function spaceFluxAt(px,py,pz,sd,atmos){
   const htKm=(Math.sqrt(cx*cx+cy*cy+cz*cz)-1)*Re;
   if(htKm<0)return 0;if(htKm>150)return SOLAR_CONST;
   const am=Math.exp(-htKm/H_SCALE)*Math.sqrt(2*Math.PI*(Re+htKm)/H_SCALE);
-  if(am>50)return 0;if(am<1e-4)return SOLAR_CONST;
+  if(am<1e-4)return SOLAR_CONST;
   return SOLAR_CONST*Math.pow(0.7,Math.pow(am,0.678));
 }
 
@@ -302,7 +306,7 @@ function spaceDayFlux(alt,incR,raanR,declDeg,atmos){
   let tot=0;
   for(let j=0;j<N;j++){
     const th=j/N*Math.PI*2,x1=r*Math.cos(th),z1=r*Math.sin(th);
-    const y2=z1*si,z2=z1*ci;
+    const y2=-z1*si,z2=z1*ci;
     tot+=spaceFluxAt(x1*co+z2*so,y2,-x1*so+z2*co,sd,atmos);
   }
   return tot/N;
@@ -426,7 +430,7 @@ function makeOrbit(radius,incR,raanR){
   const pos=new Float32Array((OSEG+1)*3),col=new Float32Array((OSEG+1)*3);
   const ci=Math.cos(incR),si=Math.sin(incR),co=Math.cos(raanR),so=Math.sin(raanR);
   for(let i=0;i<=OSEG;i++){const th=i/OSEG*Math.PI*2,x1=radius*Math.cos(th),z1=radius*Math.sin(th);
-    const x2=x1,y2=z1*si,z2=z1*ci,x3=x2*co+z2*so,y3=y2,z3=-x2*so+z2*co;
+    const x2=x1,y2=-z1*si,z2=z1*ci,x3=x2*co+z2*so,y3=y2,z3=-x2*so+z2*co;
     pos[i*3]=x3;pos[i*3+1]=y3;pos[i*3+2]=z3;col[i*3]=1;col[i*3+1]=.85;col[i*3+2]=.2}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));
   return new THREE.Line(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.7}));
@@ -443,7 +447,7 @@ function updateOrbitColors(line,sd){
       const ht=(Math.sqrt(cx2*cx2+cy2*cy2+cz2*cz2)-1)*Re;
       if(ht<0)f=0;else if(ht>150)f=1;
       else{const am=Math.exp(-ht/H_SCALE)*Math.sqrt(2*Math.PI*(Re+ht)/H_SCALE);
-        f=am>50?0:am<1e-4?1:Math.pow(0.7,Math.pow(am,0.678));}
+        f=am<1e-4?1:Math.pow(0.7,Math.pow(am,0.678));}
     }
     // Sunlit: gold (.95,.82,.15); penumbra: orange; shadow: dark blue (.1,.1,.35)
     c.setXYZ(i,.1+f*.85,.1+f*.72,.35-f*.2);
@@ -497,7 +501,7 @@ for(const l of Object.values(labels))scene.add(l);
 let activeSat='sso',currentView='leo',frameMode='sun';
 let simTime=6*3600; // start at 6 AM LA time
 let speedMode='day',timeScale=600;
-const SPEED_DAY=600,SPEED_SEASON=800000;
+const SPEED_DAY=600;
 let showSunScale=false,atmosOn=false;
 let transitioning=false,transProg=0;
 let fromCam=new THREE.Vector3(),toCam=new THREE.Vector3(),fromTgt=new THREE.Vector3(),toTgt=new THREE.Vector3();
@@ -509,7 +513,7 @@ function isInShadow(pos,sd){const dot=pos.x*sd.x+pos.y*sd.y+pos.z*sd.z;return do
 function orbitPos(radius,incR,raanR,theta){
   const ci=Math.cos(incR),si=Math.sin(incR),co=Math.cos(raanR),so=Math.sin(raanR);
   const x1=radius*Math.cos(theta),z1=radius*Math.sin(theta);
-  const x2=x1,y2=z1*si,z2=z1*ci;
+  const x2=x1,y2=-z1*si,z2=z1*ci;
   return new THREE.Vector3(x2*co+z2*so,y2,-x2*so+z2*co);
 }
 
@@ -723,7 +727,7 @@ ${eq(`Atmospheric transmittance: τ = 0.7^(AM^0.678) (Meinel model)`)}
 ${eq(`Air mass: AM = 1/(sin(α) + 0.50572·(α°+6.08)^−1.6364) (Kasten-Young)`)}
 ${eq(`Ground annual avg (with atmos) ≈ ${(SOLAR_CONST*groundYearAvg(true)).toFixed(0)} W/m²`)}
 ${eq(`Ground annual avg (no atmos) ≈ ${(SOLAR_CONST*groundYearAvg(false)).toFixed(0)} W/m² (= daylight fraction × 1361)`)}
-${eq(res(`Space advantage: ${(spYrNoAtm/groundYearAvg(true)).toFixed(1)}× (no atmos) / ${(spYrAtm/groundYearAvg(true)).toFixed(1)}× (both with atmos)`))}
+${eq(res(`Space advantage: ${(spYrNoAtm/groundYearAvg(false)).toFixed(1)}× (no atmos) / ${(spYrAtm/groundYearAvg(true)).toFixed(1)}× (both with atmos)`))}
 ${FULL_SUN_ALT?`<div class="note">Full year-round sunlight at ≥ ${FULL_SUN_ALT} km (dawn-dusk SSO). All W/m² values are incident flux assuming perfect capture (no panel efficiency losses).</div>`:''}
 </div>`;
 }
@@ -822,6 +826,13 @@ function animate(){
   starCam.position.copy(camera.position);starCam.quaternion.copy(camera.quaternion);starCam.aspect=camera.aspect;starCam.updateProjectionMatrix();
   renderer.clear();renderer.render(starScene,starCam);renderer.clearDepth();renderer.render(scene,camera);labelRenderer.render(scene,camera);
 
+  // Sync day-of-year slider with simulation time
+  {const curDoy=Math.floor(((simTime/86400)%365.25+365.25)%365.25);
+   const sl=document.getElementById('doy-slider');
+   if(document.activeElement!==sl){sl.value=curDoy;
+     let d2=curDoy,mi2=0;while(d2>=MDAYS[mi2]&&mi2<11){d2-=MDAYS[mi2];mi2++}
+     document.getElementById('doy-val').textContent=`${MONTHS[mi2]} ${d2+1}`;}}
+
   // UI updates (throttled)
   if(Math.floor(simTime*10)%3===0){updateDashboard(sunDir);updateClock()}
 }
@@ -832,7 +843,7 @@ document.querySelectorAll('[data-sat]').forEach(b=>b.addEventListener('click',()
   activeSat=b.dataset.sat;document.querySelectorAll('.stb').forEach(x=>x.classList.toggle('active',x.dataset.sat===activeSat));
   updateSatVis();cachedSSOAvg=null;cachedISSAvg=null}));
 document.querySelectorAll('[data-sp]').forEach(b=>b.addEventListener('click',()=>{
-  speedMode=b.dataset.sp;timeScale=speedMode==='day'?SPEED_DAY:speedMode==='season'?SPEED_SEASON:0;
+  speedMode=b.dataset.sp;timeScale=speedMode==='day'?SPEED_DAY:0;
   document.querySelectorAll('[data-sp]').forEach(x=>x.classList.toggle('active',x.dataset.sp===speedMode))}));
 document.getElementById('frame-sun').addEventListener('click',()=>{frameMode='sun';document.getElementById('frame-sun').classList.add('active');document.getElementById('frame-earth').classList.remove('active')});
 document.getElementById('frame-earth').addEventListener('click',()=>{frameMode='earth';document.getElementById('frame-earth').classList.add('active');document.getElementById('frame-sun').classList.remove('active')});
@@ -847,6 +858,17 @@ document.getElementById('alt-slider').addEventListener('input',e=>{
   if(FULL_SUN_ALT&&ssoAlt>=FULL_SUN_ALT)note.textContent='Full year-round sunlight!';
   else if(FULL_SUN_ALT)note.textContent=`Full sun at ≥${FULL_SUN_ALT} km`;
   else note.textContent='';
+});
+document.getElementById('doy-slider').addEventListener('input',e=>{
+  const doyTarget=parseInt(e.target.value);
+  // Preserve time-of-day, change only the day
+  const todSec=((simTime%86400)+86400)%86400;
+  simTime=doyTarget*86400+todSec;
+  // Update label
+  let d=doyTarget,mi=0;while(d>=MDAYS[mi]&&mi<11){d-=MDAYS[mi];mi++}
+  document.getElementById('doy-val').textContent=`${MONTHS[mi]} ${d+1}`;
+  // Clear caches since day changed
+  cSSOYr=null;cISSYr=null;cachedGndYrAvg=null;
 });
 document.getElementById('math-btn').addEventListener('click',()=>{updateMath();document.getElementById('math-panel').classList.add('open')});
 document.getElementById('math-close').addEventListener('click',()=>document.getElementById('math-panel').classList.remove('open'));
