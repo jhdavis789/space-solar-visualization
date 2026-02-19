@@ -131,8 +131,8 @@ canvas{display:block}
       <div class="ctrl-section">
         <label>Atmosphere</label>
         <div class="ctrl-row">
-          <button class="cbtn active" id="atm-off">Off</button>
-          <button class="cbtn" id="atm-on">On</button>
+          <button class="cbtn" id="atm-off">Off</button>
+          <button class="cbtn active" id="atm-on">On</button>
         </div>
       </div>
       <button id="math-btn">Show Detailed Math</button>
@@ -502,7 +502,7 @@ let activeSat='sso',currentView='leo',frameMode='sun';
 let simTime=6*3600; // start at 6 AM LA time
 let speedMode='day',timeScale=600;
 const SPEED_DAY=600;
-let showSunScale=false,atmosOn=false;
+let showSunScale=false,atmosOn=true;
 let transitioning=false,transProg=0;
 let fromCam=new THREE.Vector3(),toCam=new THREE.Vector3(),fromTgt=new THREE.Vector3(),toTgt=new THREE.Vector3();
 let fromNear=.005,toNear,fromFar=50,toFar;
