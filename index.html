@@ -83,6 +83,17 @@ canvas{display:block}
 .result{color:#6fc;font-weight:600}
 .warn-box{color:#fa4;margin:5px 0;padding:5px 7px;background:rgba(255,200,0,.05);border-radius:4px;font-size:.64rem}
 
+.dash-stats{font-size:.58rem;color:#889;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.06);line-height:1.5}
+.dash-stats span{color:#bbc}
+.dash-stats .kwh{color:#6fc;font-weight:600}
+#atm-info-btn,#wx-info-btn{background:none;border:1px solid rgba(255,255,255,.15);color:#889;font-size:.55rem;width:14px;height:14px;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;vertical-align:middle;line-height:1;padding:0}
+#atm-info-btn:hover,#wx-info-btn:hover{color:#ccc;border-color:rgba(255,255,255,.3)}
+#atm-info,#wx-info{position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:rgba(0,0,0,.92);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;font-size:.62rem;line-height:1.6;color:#aab;backdrop-filter:blur(10px);display:none;z-index:5;max-height:60vh;overflow-y:auto}
+#atm-info.open,#wx-info.open{display:block}
+#atm-info h5,#wx-info h5{color:#8ab4ff;font-size:.66rem;margin:6px 0 3px;font-weight:600}
+#atm-info h5:first-child,#wx-info h5:first-child{margin-top:0}
+#atm-info code,#wx-info code{font-family:'SF Mono',Consolas,monospace;background:rgba(255,255,255,.05);padding:1px 4px;border-radius:2px;color:#dde;font-size:.6rem}
+#atm-info .warn,#wx-info .warn{color:#fa5}
 .label3d{color:#aab;font-size:10px;pointer-events:none;white-space:nowrap;text-shadow:0 0 5px rgba(0,0,0,.9),0 0 10px rgba(0,0,0,.7)}
 @media(max-width:800px){#lctrl{width:140px}#dashboard{width:170px}.vb,.stb{font-size:.62rem;padding:4px 7px}}
 </style>
@@ -128,11 +139,49 @@ canvas{display:block}
           <button class="cbtn" id="sun-on">Show True Sun</button>
         </div>
       </div>
-      <div class="ctrl-section">
-        <label>Atmosphere</label>
+      <div class="ctrl-section" style="position:relative">
+        <label>Atmosphere<button id="atm-info-btn">?</button></label>
         <div class="ctrl-row">
           <button class="cbtn" id="atm-off">Off</button>
           <button class="cbtn active" id="atm-on">On</button>
+        </div>
+        <div id="atm-info">
+          <h5>What "Atmosphere" toggles</h5>
+          When <strong>ON</strong>, sunlight passing through Earth's atmosphere is attenuated before reaching the panel. When <strong>OFF</strong>, the only loss is geometric shadowing (night/eclipse).
+          <h5>Ground panel model</h5>
+          <strong>Air mass</strong> via Kasten-Young (1989):<br>
+          <code>AM = 1/(sin(α) + 0.50572·(α°+6.08)^-1.6364)</code><br>
+          where α = solar elevation angle. At zenith AM=1, at horizon AM≈38.<br><br>
+          <strong>Transmittance</strong> via Meinel (1976) clear-sky broadband:<br>
+          <code>T = 0.7^(AM^0.678)</code><br>
+          The 0.678 exponent averages Rayleigh scattering, Mie aerosol, and molecular absorption across the full solar spectrum.<br><br>
+          <span class="warn">Clear sky only — no clouds, rain, or haze. Real-world ground output is ~25-50% lower depending on climate.</span>
+          <h5>Space panel model</h5>
+          Near the shadow boundary, the satellite-to-Sun line of sight grazes Earth's atmosphere. The <strong>tangent height</strong> h<sub>t</sub> is the closest approach of that ray to Earth's surface.<br><br>
+          <strong>Limb air mass</strong> via Chapman function for exponential atmosphere (ρ = ρ₀·e^(-h/H)):<br>
+          <code>AM(h_t) = e^(-h_t/H) · √(2π(R_e+h_t)/H)</code><br>
+          H = 8.5 km (scale height). This is the exact analytical integral of density along the chord.<br><br>
+          Same Meinel transmittance: <code>T = 0.7^(AM^0.678)</code><br><br>
+          Effect is small (~0.01-0.1% annual average) since the penumbra transition spans only ~80 km of tangent height (~12 seconds of orbit).
+        </div>
+      </div>
+      <div class="ctrl-section" style="position:relative">
+        <label>Weather (Ground)<button id="wx-info-btn">?</button></label>
+        <div class="ctrl-row">
+          <button class="cbtn" id="wx-off">Off</button>
+          <button class="cbtn active" id="wx-on">On</button>
+        </div>
+        <div id="wx-info">
+          <h5>What "Weather" toggles</h5>
+          When <strong>ON</strong>, ground panel output is reduced by monthly cloud/weather factors for Los Angeles based on TMY3 (Typical Meteorological Year) measured data.<br><br>
+          <strong>Monthly factors</strong> (fraction of clear-sky GHI reaching ground):<br>
+          <code>Jan 0.70 · Feb 0.72 · Mar 0.70 · Apr 0.74</code><br>
+          <code>May 0.70 · Jun 0.78 · Jul 0.87 · Aug 0.86</code><br>
+          <code>Sep 0.82 · Oct 0.75 · Nov 0.74 · Dec 0.69</code><br><br>
+          Annual average: ~0.76 (LA is one of the sunniest US cities).<br>
+          Accounts for: clouds, marine layer, haze, fog, and aerosols.<br><br>
+          <span class="warn">Space panel is unaffected — no weather in orbit.</span><br>
+          <strong>Note:</strong> These data centers may not need 24/7 operation. Even a few hours/year of compute time could suffice for some workloads, making the energy economics even more favorable for space.
         </div>
       </div>
       <button id="math-btn">Show Detailed Math</button>
@@ -147,6 +196,7 @@ canvas{display:block}
         <div class="dash-wm2" id="sp-day-wm2"></div>
         <div class="bar-row"><span class="bar-label">Year Avg</span><div class="bar-track"><div class="bar-fill space" id="sp-yr-bar"></div></div><span class="bar-val" id="sp-yr-val">—</span></div>
         <div class="dash-wm2" id="sp-yr-wm2"></div>
+        <div class="dash-stats" id="sp-stats"></div>
       </div>
       <div class="dash-panel">
         <h4 class="ground">GROUND — LA 34°N Tracking</h4>
@@ -156,6 +206,7 @@ canvas{display:block}
         <div class="dash-wm2" id="gd-day-wm2"></div>
         <div class="bar-row"><span class="bar-label">Year Avg</span><div class="bar-track"><div class="bar-fill ground" id="gd-yr-bar"></div></div><span class="bar-val" id="gd-yr-val">—</span></div>
         <div class="dash-wm2" id="gd-yr-wm2"></div>
+        <div class="dash-stats" id="gd-stats"></div>
       </div>
       <div class="dash-panel">
         <div class="dash-adv" id="dash-advantage">—</div>
@@ -238,6 +289,21 @@ function groundYearAvg(atmos){
   cachedGndYrAvg=t/c/SOLAR_CONST;cachedGndYrAtm=atmos;return cachedGndYrAvg;
 }
 
+// LA monthly weather factors: ratio of actual measured GHI to clear-sky GHI
+// Based on TMY3 data for LA (clouds, haze, marine layer, seasonal fog)
+const LA_WX=[0.70,0.72,0.70,0.74,0.70,0.78,0.87,0.86,0.82,0.75,0.74,0.69];
+function weatherFactor(doy){let d=doy,mi=0;const md=[31,28,31,30,31,30,31,31,30,31,30,31];while(d>=md[mi]&&mi<11){d-=md[mi];mi++}return LA_WX[mi]}
+
+// Ground year avg with weather
+let cachedGndYrWx=null,cachedGndYrWxAtm=null;
+function groundYearAvgWx(atmos){
+  if(cachedGndYrWxAtm===atmos&&cachedGndYrWx!==null)return cachedGndYrWx;
+  let t=0,c=0;
+  for(let d=0;d<365;d++){const decl=sunDecl(d),wf=weatherFactor(d);
+    for(let h=0;h<24;h+=.5){t+=groundFlux(LA_LAT,decl,h,atmos)*wf;c++}}
+  cachedGndYrWx=t/c/SOLAR_CONST;cachedGndYrWxAtm=atmos;return cachedGndYrWx;
+}
+
 // Find full-sun altitude
 function findFullSunAlt(){
   for(let a=400;a<=3000;a+=5){
@@ -247,6 +313,38 @@ function findFullSunAlt(){
   }return null;
 }
 const FULL_SUN_ALT=findFullSunAlt();
+
+// Max eclipse duration (minutes) for SSO at given altitude — worst day of year
+function maxEclipseMinSSO(alt){
+  const rho=rhoRad(alt),inc=ssoIncRad(alt),per=orbPeriod(alt)/60;
+  let maxFrac=0;
+  for(let d=0;d<365;d++){
+    const beta=ssoBetaRad(inc,sunDecl(d));
+    if(Math.abs(beta)<rho){const f=1-sunlitFrac(beta,rho);if(f>maxFrac)maxFrac=f;}
+  }
+  return maxFrac*per;
+}
+// Max eclipse for ISS — worst RAAN + day combo
+function maxEclipseMinISS(){
+  const rho=rhoRad(408),per=orbPeriod(408)/60;
+  let maxFrac=0;
+  for(let d=0;d<365;d++){const decl=sunDecl(d);
+    for(let p=0;p<360;p+=5){const beta=issBetaRad(51.6,p,decl);
+      if(Math.abs(beta)<rho){const f=1-sunlitFrac(beta,rho);if(f>maxFrac)maxFrac=f;}}}
+  return maxFrac*per;
+}
+// Longest night at given latitude (hours) — scans all days
+function longestNightHrs(latDeg){
+  let maxDark=0;
+  for(let d=0;d<365;d++){
+    const decl=sunDecl(d);let dark=0;
+    for(let h=0;h<24;h+=.25){
+      if(solarElev(latDeg*DEG,decl*DEG,(h-12)*15*DEG)<=0)dark+=.25;
+    }
+    if(dark>maxDark)maxDark=dark;
+  }
+  return maxDark;
+}
 
 // ═══════════════ ATMOSPHERE LIMB MODEL ═══════════════
 // For a satellite near the shadow boundary, sunlight grazes Earth's atmosphere.
@@ -502,7 +600,7 @@ let activeSat='sso',currentView='leo',frameMode='sun';
 let simTime=6*3600; // start at 6 AM LA time
 let speedMode='day',timeScale=600;
 const SPEED_DAY=600;
-let showSunScale=false,atmosOn=true;
+let showSunScale=false,atmosOn=true,weatherOn=true;
 let transitioning=false,transProg=0;
 let fromCam=new THREE.Vector3(),toCam=new THREE.Vector3(),fromTgt=new THREE.Vector3(),toTgt=new THREE.Vector3();
 let fromNear=.005,toNear,fromFar=50,toFar;
@@ -604,22 +702,42 @@ function updateDashboard(sunDir){
   const spYr=(activeSat==='sso'?ssoYearAvgAtmos(ssoAlt,atmosOn):issYearAvgAtmos(atmosOn))*100;
   setBar('sp-yr',spYr,SOLAR_CONST*spYr/100);
 
-  // Ground current
-  const gdCurW=groundFlux(LA_LAT,decl,laHour,atmosOn);
+  // Ground current (apply weather factor if on)
+  const wf=weatherOn?weatherFactor(doy):1;
+  const gdCurW=groundFlux(LA_LAT,decl,laHour,atmosOn)*wf;
   const gdCur=gdCurW/SOLAR_CONST*100;
   setBar('gd-cur',gdCur,gdCurW);
   // Ground day avg
-  const gdDayW=groundDayAvg(LA_LAT,decl,atmosOn);
+  const gdDayW=groundDayAvg(LA_LAT,decl,atmosOn)*wf;
   setBar('gd-day',gdDayW/SOLAR_CONST*100,gdDayW);
   // Ground year avg
-  const gdYr=groundYearAvg(atmosOn)*100;
+  const gdYrRaw=weatherOn?groundYearAvgWx(atmosOn):groundYearAvg(atmosOn);
+  const gdYr=gdYrRaw*100;
   setBar('gd-yr',gdYr,SOLAR_CONST*gdYr/100);
+
+  // Space stats: max eclipse, annual kWh/m², storage needed
+  const spMaxEcl=activeSat==='sso'?maxEclipseMinSSO(ssoAlt):maxEclipseMinISS();
+  const spAvgW=SOLAR_CONST*spYr/100;
+  const spKwh=spAvgW*8760/1000;
+  const spStorageWh=spAvgW*(spMaxEcl/60); // Wh/m² needed to bridge eclipse
+  const spEclStr=spMaxEcl<0.1?'None (100% sunlit)':`${spMaxEcl.toFixed(1)} min (${(spMaxEcl/60).toFixed(2)} hrs)`;
+  const spStorStr=spMaxEcl<0.1?'0':`${spStorageWh.toFixed(0)}`;
+  document.getElementById('sp-stats').innerHTML=`Max shadow: <span>${spEclStr}</span><br>Storage to bridge: <span>${spStorStr} Wh/m²</span><br>Annual: <span class="kwh">${spKwh.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} kWh/m²</span><br><span style="color:#668;font-style:italic">No weather in orbit. May not need 24/7 — even hours/yr of compute can suffice.</span>`;
+
+  // Ground stats: longest night, annual kWh/m², storage needed
+  const gdNight=longestNightHrs(LA_LAT);
+  const gdAvgW=SOLAR_CONST*gdYr/100;
+  const gdKwh=gdAvgW*8760/1000;
+  const gdStorageWh=gdAvgW*gdNight; // Wh/m² needed to bridge longest night
+  const wxLabel=weatherOn?'With weather':'Clear sky only';
+  document.getElementById('gd-stats').innerHTML=`Longest night: <span>${gdNight.toFixed(1)} hrs</span><br>Storage to bridge: <span>${gdStorageWh.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} Wh/m²</span><br>Annual: <span class="kwh">${gdKwh.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} kWh/m²</span><br><span style="color:#776;font-style:italic">${wxLabel}. Ground needs massive storage or grid backup for night.</span>`;
 
   // Advantage
   const adv=spYr>0&&gdYr>0?(spYr/gdYr).toFixed(1)+'×':'—';
   document.getElementById('dash-advantage').textContent=`Space advantage: ${adv} annual avg`;
-  const atmNote=atmosOn?' · Atmosphere ON':' · Atmosphere OFF';
-  document.getElementById('dash-detail').textContent=`0% = no energy, 100% = 1,361 W/m² (perfect capture)${atmNote}`;
+  const atmNote=atmosOn?' · Atmos ON':'· Atmos OFF';
+  const wxNote=weatherOn?' · Weather ON':' · Weather OFF';
+  document.getElementById('dash-detail').textContent=`100% = 1,361 W/m² (perfect capture) ${atmNote}${wxNote}`;
   document.getElementById('dash-space-title').textContent=`SPACE — ${activeSat==='sso'?'SSO':'ISS'} ${alt} km`;
 }
 
@@ -849,8 +967,15 @@ document.getElementById('frame-sun').addEventListener('click',()=>{frameMode='su
 document.getElementById('frame-earth').addEventListener('click',()=>{frameMode='earth';document.getElementById('frame-earth').classList.add('active');document.getElementById('frame-sun').classList.remove('active')});
 document.getElementById('sun-off').addEventListener('click',()=>{showSunScale=false;document.getElementById('sun-off').classList.add('active');document.getElementById('sun-on').classList.remove('active');if(currentView==='leo')setView('leo')});
 document.getElementById('sun-on').addEventListener('click',()=>{showSunScale=true;document.getElementById('sun-on').classList.add('active');document.getElementById('sun-off').classList.remove('active');if(currentView==='leo')setView('leo')});
-document.getElementById('atm-off').addEventListener('click',()=>{atmosOn=false;document.getElementById('atm-off').classList.add('active');document.getElementById('atm-on').classList.remove('active');cSSOYr=null;cISSYr=null;cachedGndYrAvg=null});
-document.getElementById('atm-on').addEventListener('click',()=>{atmosOn=true;document.getElementById('atm-on').classList.add('active');document.getElementById('atm-off').classList.remove('active');cSSOYr=null;cISSYr=null;cachedGndYrAvg=null});
+document.getElementById('atm-off').addEventListener('click',()=>{atmosOn=false;document.getElementById('atm-off').classList.add('active');document.getElementById('atm-on').classList.remove('active');cSSOYr=null;cISSYr=null;cachedGndYrAvg=null;cachedGndYrWx=null});
+document.getElementById('atm-on').addEventListener('click',()=>{atmosOn=true;document.getElementById('atm-on').classList.add('active');document.getElementById('atm-off').classList.remove('active');cSSOYr=null;cISSYr=null;cachedGndYrAvg=null;cachedGndYrWx=null});
+document.getElementById('wx-off').addEventListener('click',()=>{weatherOn=false;document.getElementById('wx-off').classList.add('active');document.getElementById('wx-on').classList.remove('active');cachedGndYrWx=null});
+document.getElementById('wx-on').addEventListener('click',()=>{weatherOn=true;document.getElementById('wx-on').classList.add('active');document.getElementById('wx-off').classList.remove('active');cachedGndYrWx=null});
+document.getElementById('atm-info-btn').addEventListener('click',(e)=>{e.stopPropagation();document.getElementById('atm-info').classList.toggle('open');document.getElementById('wx-info').classList.remove('open')});
+document.getElementById('wx-info-btn').addEventListener('click',(e)=>{e.stopPropagation();document.getElementById('wx-info').classList.toggle('open');document.getElementById('atm-info').classList.remove('open')});
+document.addEventListener('click',(e)=>{
+  ['atm-info','wx-info'].forEach(id=>{const el=document.getElementById(id);if(el.classList.contains('open')&&!el.contains(e.target)&&e.target.id!==id.replace('info','info-btn'))el.classList.remove('open')});
+});
 document.getElementById('alt-slider').addEventListener('input',e=>{
   ssoAlt=parseInt(e.target.value);document.getElementById('alt-val').textContent=ssoAlt+' km';
   rebuildSSOOrbit();cachedSSOAvg=null;cSSOYr=null;

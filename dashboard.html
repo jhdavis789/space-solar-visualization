@@ -1,0 +1,3049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space Solar Power LEO Economics — $/W Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   CSS Variables & Reset
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-card: #1c2128;
+  --border: #30363d;
+  --border-light: #484f58;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent-blue: #58a6ff;
+  --accent-green: #3fb950;
+  --accent-orange: #d29922;
+  --accent-red: #f85149;
+  --accent-purple: #bc8cff;
+  --accent-cyan: #39d2c0;
+  --kpi-positive: #238636;
+  --kpi-negative: #da3633;
+  --sidebar-width: 340px;
+  --header-height: 56px;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
+  --transition: 150ms ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Layout
+   ═══════════════════════════════════════════════════════════════ */
+.app-header {
+  height: var(--header-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+}
+.app-header h1 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.app-header h1 span { color: var(--accent-blue); }
+.scenario-btns { display: flex; gap: 6px; }
+.scenario-btn {
+  padding: 5px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.scenario-btn:hover { border-color: var(--border-light); color: var(--text-primary); }
+.scenario-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
+.app-layout {
+  display: flex;
+  height: calc(100vh - var(--header-height));
+  margin-top: var(--header-height);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Sidebar
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+
+.param-group {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.param-group-header {
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+.param-group-header::after {
+  content: '▾';
+  font-size: 0.7rem;
+  transition: transform var(--transition);
+}
+.param-group.collapsed .param-group-header::after { transform: rotate(-90deg); }
+.param-group-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 12px; }
+.param-group.collapsed .param-group-body { display: none; }
+
+.param-item { display: flex; flex-direction: column; gap: 4px; }
+.param-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.param-label .param-name { font-weight: 500; }
+.param-value {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.param-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-tertiary);
+  outline: none;
+  cursor: pointer;
+}
+.param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 0 4px rgba(88,166,255,0.4);
+}
+
+.pill-group {
+  display: flex;
+  gap: 3px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  padding: 2px;
+}
+.pill-btn {
+  flex: 1;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+.pill-btn:hover { color: var(--text-secondary); }
+.pill-btn.active { background: var(--accent-blue); color: #fff; }
+.pill-btn.opt { color: var(--accent-green); }
+.pill-btn.real { color: var(--accent-orange); }
+.pill-btn.pess { color: var(--accent-red); }
+.pill-btn.opt.active { background: var(--accent-green); color: #fff; }
+.pill-btn.real.active { background: var(--accent-orange); color: #fff; }
+.pill-btn.pess.active { background: var(--accent-red); color: #fff; }
+
+.source-link {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: help;
+  border-bottom: 1px dotted var(--text-muted);
+}
+.source-link:hover { color: var(--accent-blue); border-color: var(--accent-blue); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Main Content
+   ═══════════════════════════════════════════════════════════════ */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.main-content::-webkit-scrollbar { width: 8px; }
+.main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* KPI Strip */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kpi-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+.kpi-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.kpi-unit {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+.kpi-earth {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+  line-height: 1.3;
+  font-style: italic;
+}
+.kpi-card.highlight { border-color: var(--accent-blue); }
+.kpi-card.highlight .kpi-value { color: var(--accent-blue); }
+
+/* Chart Grid */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  min-height: 380px;
+}
+.chart-card.full-width { grid-column: 1 / -1; }
+.chart-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.chart-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.chart-container {
+  width: 100%;
+  height: 320px;
+}
+
+/* Assumptions Table */
+.assumptions-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.assumptions-header {
+  padding: 14px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.assumptions-header::after { content: '▾'; font-size: 0.7rem; }
+.assumptions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.assumptions-table th {
+  text-align: left;
+  padding: 8px 14px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  position: sticky;
+  top: 0;
+}
+.assumptions-table td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.assumptions-table tr:hover td { background: rgba(88,166,255,0.04); }
+.assumptions-table .val-opt { color: var(--accent-green); font-family: var(--font-mono); font-size: 0.75rem; }
+.assumptions-table .val-real { color: var(--accent-orange); font-family: var(--font-mono); font-size: 0.75rem; }
+.assumptions-table .val-pess { color: var(--accent-red); font-family: var(--font-mono); font-size: 0.75rem; }
+.assumptions-table .val-active {
+  font-weight: 700;
+  background: rgba(88,166,255,0.08);
+}
+.assumptions-table .source-col { color: var(--text-muted); font-size: 0.7rem; }
+.assumptions-body-wrap { max-height: 600px; overflow-y: auto; }
+.assumptions-section.collapsed .assumptions-body-wrap { display: none; }
+.assumptions-section.collapsed .assumptions-header::after { transform: rotate(-90deg); display: inline-block; }
+
+/* Footer */
+.app-footer {
+  padding: 20px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+.app-footer a { color: var(--accent-blue); text-decoration: none; }
+.app-footer a:hover { text-decoration: underline; }
+
+/* Explainer Modal */
+.explainer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+.explainer-overlay.open { display: flex; align-items: center; justify-content: center; }
+.explainer-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-width: 620px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.explainer-modal::-webkit-scrollbar { width: 6px; }
+.explainer-modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.explainer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  z-index: 1;
+}
+.explainer-head h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.3;
+}
+.explainer-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 0 0 12px;
+  line-height: 1;
+}
+.explainer-close:hover { color: var(--text-primary); }
+.explainer-body {
+  padding: 16px 20px 20px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+.explainer-body h3 {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 14px 0 6px;
+  font-weight: 600;
+}
+.explainer-body h3:first-child { margin-top: 0; }
+.explainer-body p { margin: 0 0 8px; }
+.explainer-body code {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent-cyan);
+}
+.explainer-body .formula {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--accent-cyan);
+  margin: 8px 0;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+.explainer-body .source-cite {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border-left: 2px solid var(--border-light);
+  padding-left: 10px;
+  margin: 8px 0;
+}
+.explainer-body a { color: var(--accent-blue); text-decoration: none; }
+.explainer-body a:hover { text-decoration: underline; }
+
+/* Clickable labels */
+[data-explain] {
+  cursor: help;
+  border-bottom: 1px dotted var(--text-muted);
+  transition: border-color var(--transition), color var(--transition);
+}
+[data-explain]:hover {
+  border-bottom-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+  .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 1100px) {
+  .sidebar { display: none; }
+  .chart-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- Explainer Modal -->
+<div class="explainer-overlay" id="explainerOverlay" onclick="if(event.target===this)closeExplainer()">
+  <div class="explainer-modal">
+    <div class="explainer-head">
+      <h2 id="explainerTitle"></h2>
+      <button class="explainer-close" onclick="closeExplainer()">&times;</button>
+    </div>
+    <div class="explainer-body" id="explainerBody"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Header
+     ═══════════════════════════════════════════════════════════════ -->
+<header class="app-header">
+  <h1>Space Solar Power LEO Economics — <span>$/W Dashboard</span></h1>
+  <div class="scenario-btns">
+    <button class="scenario-btn" data-scenario="moonshot" onclick="setScenario('moonshot')">Moonshot</button>
+    <button class="scenario-btn active" data-scenario="base" onclick="setScenario('base')">Base Case</button>
+    <button class="scenario-btn" data-scenario="conservative" onclick="setScenario('conservative')">Conservative</button>
+    <button class="scenario-btn" data-scenario="custom" onclick="setScenario('custom')">Custom</button>
+  </div>
+</header>
+
+<div class="app-layout">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Sidebar — Parameter Controls
+     ═══════════════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar"></aside>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Main Content
+     ═══════════════════════════════════════════════════════════════ -->
+<main class="main-content" id="mainContent">
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip" id="kpiStrip">
+    <div class="kpi-card highlight" id="kpi-costPerW">
+      <span class="kpi-label" data-explain="kpi-costPerW">Cost per Watt (BOL)</span>
+      <span class="kpi-value">—</span>
+      <span class="kpi-unit">$/W deployed</span>
+      <span class="kpi-earth">Earth: $0.70–1.00/W utility solar installed</span>
+    </div>
+    <div class="kpi-card" id="kpi-effectiveCostPerW">
+      <span class="kpi-label" data-explain="kpi-effectiveCostPerW">Effective $/W (lifetime avg)</span>
+      <span class="kpi-value">—</span>
+      <span class="kpi-unit">$/W·yr amortized</span>
+      <span class="kpi-earth">Earth: $0.03–0.04/W·yr (25-yr utility solar)</span>
+    </div>
+    <div class="kpi-card" id="kpi-assetLife">
+      <span class="kpi-label" data-explain="kpi-assetLife">Expected Asset Life</span>
+      <span class="kpi-value">—</span>
+      <span class="kpi-unit">years</span>
+      <span class="kpi-earth">Earth: 25–30 yr (ground solar warranty)</span>
+    </div>
+    <div class="kpi-card" id="kpi-massToOrbit">
+      <span class="kpi-label" data-explain="kpi-massToOrbit">Mass per kW</span>
+      <span class="kpi-value">—</span>
+      <span class="kpi-unit">kg/kW to orbit</span>
+      <span class="kpi-earth">Earth: ~5 kg/kW (rooftop Si panel)</span>
+    </div>
+    <div class="kpi-card" id="kpi-numLaunches">
+      <span class="kpi-label" data-explain="kpi-numLaunches">Launches for 1 GW</span>
+      <span class="kpi-value">—</span>
+      <span class="kpi-unit">Starship flights</span>
+      <span class="kpi-earth">Earth: 0 launches, ~5 km² land area</span>
+    </div>
+    <div class="kpi-card" id="kpi-programCost">
+      <span class="kpi-label" data-explain="kpi-programCost">1 GW Program Cost</span>
+      <span class="kpi-value">—</span>
+      <span class="kpi-unit">USD total</span>
+      <span class="kpi-earth">Earth: ~$0.7–1.0B (utility solar farm)</span>
+    </div>
+  </div>
+
+  <!-- Row 1: Cost Waterfall + Altitude Optimizer -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-waterfall">Cost Waterfall — $/W Breakdown</div>
+      <div class="chart-subtitle">Panel + structure + launch + station-keeping NPV + debris reserve</div>
+      <div class="chart-container" id="chart-waterfall"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-altitude">Altitude Optimizer — Sweet Spot</div>
+      <div class="chart-subtitle">$/W vs altitude: drag cost rises at low alt, launch cost rises at high alt</div>
+      <div class="chart-container" id="chart-altitude"></div>
+    </div>
+  </div>
+
+  <!-- Row 2: Drag vs Altitude + Degradation -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-drag">Atmospheric Drag vs Altitude</div>
+      <div class="chart-subtitle">Density (log scale) and station-keeping ΔV by solar activity level</div>
+      <div class="chart-container" id="chart-drag"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-degradation">Panel Degradation Over Time</div>
+      <div class="chart-subtitle">Efficiency vs years — radiation + thermal cycling + UV</div>
+      <div class="chart-container" id="chart-degradation"></div>
+    </div>
+  </div>
+
+  <!-- Row 3: Debris Survival + Sensitivity Tornado -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-debris">Debris Survival Probability</div>
+      <div class="chart-subtitle">P(survive) vs years for different segment sizes</div>
+      <div class="chart-container" id="chart-debris"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-tornado">Sensitivity Tornado — What Moves $/W Most?</div>
+      <div class="chart-subtitle">Parameter swing from optimistic to pessimistic, ranked by impact</div>
+      <div class="chart-container" id="chart-tornado"></div>
+    </div>
+  </div>
+
+  <!-- Row 4: 1 GW Timeline + Thermal Balance -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-timeline">1 GW Deployment Timeline</div>
+      <div class="chart-subtitle">Cumulative capacity vs months at various launch cadences</div>
+      <div class="chart-container" id="chart-timeline"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-thermal">Thermal Balance — Energy Flow</div>
+      <div class="chart-subtitle">Solar input → electricity + waste heat → radiative cooling</div>
+      <div class="chart-container" id="chart-thermal"></div>
+    </div>
+  </div>
+
+  <!-- Row 5: Eclipse & Battery + Launch Energy -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-eclipse">Eclipse Duration & Battery Storage vs Altitude</div>
+      <div class="chart-subtitle">Dawn-dusk SSO seasonal eclipses vanish above ~574 km — below that, batteries required</div>
+      <div class="chart-container" id="chart-eclipse"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title" data-explain="chart-launchEnergy">Launch Energy & ΔV vs Altitude</div>
+      <div class="chart-subtitle">Minimum energy to reach orbit — higher orbits cost more to reach but less to maintain</div>
+      <div class="chart-container" id="chart-launchEnergy"></div>
+    </div>
+  </div>
+
+  <!-- Assumptions Table -->
+  <div class="assumptions-section" id="assumptionsSection">
+    <div class="assumptions-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      Full Assumptions Table — Every Parameter, Source & Range
+    </div>
+    <div class="assumptions-body-wrap">
+      <table class="assumptions-table" id="assumptionsTable">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Parameter</th>
+            <th>Optimistic</th>
+            <th>Base</th>
+            <th>Pessimistic</th>
+            <th>Active</th>
+            <th>Unit</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody id="assumptionsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <strong>Methodology:</strong> Physics models use NRLMSISE-00 atmospheric density fits, Tsiolkovsky rocket equation for station-keeping propellant,
+    NASA ORDEM 3.1 debris flux parameterization, and NREL degradation curves. Economics assume Starship-class vehicle costs.
+    All parameters adjustable via sidebar. Phase 1: energy production only.<br>
+    <strong>Key Sources:</strong>
+    <a href="https://www.smad.com/" target="_blank">SMAD (Wertz)</a> ·
+    <a href="https://www.nrel.gov/pv/cell-efficiency.html" target="_blank">NREL Best Research-Cell</a> ·
+    <a href="https://orbitaldebris.jsc.nasa.gov/modeling/ordem-3.1.html" target="_blank">NASA ORDEM 3.1</a> ·
+    <a href="https://ntrs.nasa.gov/" target="_blank">NASA NTRS</a> ·
+    <a href="https://www.spacex.com/vehicles/starship/" target="_blank">SpaceX Starship</a>
+  </footer>
+
+</main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MAIN SCRIPT
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════════════════ */
+const CONST = {
+  G: 6.674e-11,         // gravitational constant (m³/kg/s²)
+  M_EARTH: 5.972e24,    // Earth mass (kg)
+  R_EARTH: 6371e3,      // Earth radius (m)
+  MU: 3.986e14,         // standard gravitational parameter (m³/s²)
+  SOLAR_FLUX: 1361,     // solar constant (W/m²)
+  C_LIGHT: 2.998e8,     // speed of light (m/s)
+  STEFAN_BOLTZMANN: 5.670374419e-8, // σ (W/m²/K⁴)
+  J2: 1.08263e-3,       // Earth J2 oblateness
+  SECONDS_PER_YEAR: 365.25 * 86400,
+  LOX_PRICE_PER_KG: 0.16,   // liquid oxygen $/kg
+  CH4_PRICE_PER_KG: 1.10,   // liquid methane $/kg
+  STARSHIP_LOX_KG: 3600e3,  // ~3600 tonnes LOX
+  STARSHIP_CH4_KG: 800e3,   // ~800 tonnes CH4
+};
+
+// Starship fuel cost per launch
+CONST.STARSHIP_FUEL_COST = CONST.STARSHIP_LOX_KG * CONST.LOX_PRICE_PER_KG
+                         + CONST.STARSHIP_CH4_KG * CONST.CH4_PRICE_PER_KG; // ~$1.46M
+
+/* ═══════════════════════════════════════════════════════════════
+   PARAMETER SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+const PARAMS = {
+  // ── Orbit ──
+  altitude: {
+    category: 'Orbit Parameters',
+    name: 'Altitude',
+    unit: 'km',
+    opt: 800, real: 600, pess: 500,
+    min: 400, max: 1200, step: 10,
+    source: 'SSO dawn-dusk typical range',
+    type: 'slider',
+  },
+  solarActivity: {
+    category: 'Orbit Parameters',
+    name: 'Solar Activity',
+    unit: '',
+    opt: 'low', real: 'moderate', pess: 'high',
+    values: ['low', 'moderate', 'high'],
+    source: 'NRLMSISE-00 / 11-yr solar cycle',
+    type: 'pill',
+  },
+  dawnDuskFraction: {
+    category: 'Orbit Parameters',
+    name: 'Sunlight Fraction',
+    unit: '%',
+    opt: 98, real: 95, pess: 88,
+    min: 80, max: 100, step: 1,
+    source: 'Dawn-dusk SSO: ~95-100% sunlight',
+    type: 'slider',
+  },
+  // ── Panel Technology ──
+  panelEfficiency: {
+    category: 'Panel Technology',
+    name: 'Panel Efficiency (BOL)',
+    unit: '%',
+    opt: 35, real: 30, pess: 24,
+    min: 10, max: 50, step: 0.5,
+    source: 'NREL Best Research-Cell Chart',
+    type: 'slider',
+  },
+  panelMassPerM2: {
+    category: 'Panel Technology',
+    name: 'Panel Mass',
+    unit: 'kg/m²',
+    opt: 0.17, real: 0.86, pess: 2.5,
+    min: 0.1, max: 5, step: 0.01,
+    source: 'Alta Devices (0.17); TJ GaAs typical (0.86)',
+    type: 'slider',
+  },
+  structureOverhead: {
+    category: 'Panel Technology',
+    name: 'Structure Overhead',
+    unit: '%',
+    opt: 10, real: 30, pess: 60,
+    min: 5, max: 100, step: 1,
+    source: 'ATK UltraFlex heritage; tensioned membrane',
+    type: 'slider',
+  },
+  radiationDegPerYear: {
+    category: 'Panel Technology',
+    name: 'Radiation Degradation',
+    unit: '%/yr',
+    opt: 0.5, real: 2.0, pess: 5.0,
+    min: 0.1, max: 10, step: 0.1,
+    source: 'Messenger et al. JPL; OSTI',
+    type: 'slider',
+  },
+  tempCoefficient: {
+    category: 'Panel Technology',
+    name: 'Temp Coefficient',
+    unit: '%/°C',
+    opt: -0.20, real: -0.30, pess: -0.45,
+    min: -0.6, max: -0.1, step: 0.01,
+    source: 'Spectrolab datasheet; GaAs vs Si',
+    type: 'slider',
+  },
+  panelCostPerW: {
+    category: 'Panel Technology',
+    name: 'Panel Cost (ground)',
+    unit: '$/W',
+    opt: 1, real: 50, pess: 200,
+    min: 0.5, max: 500, step: 0.5,
+    source: 'NREL ATB (perovskite); Spectrolab (TJ GaAs)',
+    type: 'slider',
+  },
+  // ── Launch Economics ──
+  launchCostPerKg: {
+    category: 'Launch Economics',
+    name: 'Launch Cost',
+    unit: '$/kg to SSO',
+    opt: 50, real: 200, pess: 2720,
+    min: 10, max: 5000, step: 10,
+    source: 'Starship projections; Falcon 9 current',
+    type: 'slider',
+  },
+  starshipPayloadSSO: {
+    category: 'Launch Economics',
+    name: 'Starship Payload to SSO',
+    unit: 'tonnes',
+    opt: 100, real: 80, pess: 50,
+    min: 20, max: 150, step: 1,
+    source: 'SpaceX estimates (varies with altitude)',
+    type: 'slider',
+  },
+  groundOpsCostPerLaunch: {
+    category: 'Launch Economics',
+    name: 'Ground Ops per Launch',
+    unit: '$M',
+    opt: 1, real: 3, pess: 10,
+    min: 0.5, max: 20, step: 0.5,
+    source: 'SpaceX operational estimates',
+    type: 'slider',
+  },
+  // ── Station-Keeping ──
+  propulsionType: {
+    category: 'Station-Keeping',
+    name: 'Propulsion Type',
+    unit: '',
+    opt: 'hall', real: 'hall', pess: 'chemical',
+    values: ['hall', 'chemical'],
+    labels: ['Hall Thruster', 'Chemical'],
+    source: 'Hall: Isp~3000s; Chemical: Isp~320s',
+    type: 'pill',
+  },
+  dragCoefficient: {
+    category: 'Station-Keeping',
+    name: 'Drag Coefficient (Cd)',
+    unit: '',
+    opt: 2.0, real: 2.2, pess: 2.5,
+    min: 1.5, max: 3.0, step: 0.1,
+    source: 'SMAD Table 8-4; flat plate Cd≈2.2',
+    type: 'slider',
+  },
+  panelReflectivity: {
+    category: 'Station-Keeping',
+    name: 'Panel Reflectivity',
+    unit: '',
+    opt: 0.05, real: 0.15, pess: 0.30,
+    min: 0, max: 0.5, step: 0.01,
+    source: 'Si cells ~5-15%; with coating up to 30%',
+    type: 'slider',
+  },
+  // ── Debris & Risk ──
+  debrisFluxMultiplier: {
+    category: 'Debris & Risk',
+    name: 'Debris Flux Growth',
+    unit: '×',
+    opt: 1.0, real: 1.5, pess: 3.0,
+    min: 0.5, max: 5, step: 0.1,
+    source: 'NASA ORDEM 3.1; Kessler trend',
+    type: 'slider',
+  },
+  segmentSize: {
+    category: 'Debris & Risk',
+    name: 'Panel Segment Size',
+    unit: 'm²',
+    opt: 1, real: 4, pess: 16,
+    min: 0.25, max: 25, step: 0.25,
+    source: 'Design variable: smaller = more redundant',
+    type: 'slider',
+  },
+  shieldingMassPerM2: {
+    category: 'Debris & Risk',
+    name: 'Whipple Shielding Mass',
+    unit: 'kg/m²',
+    opt: 0, real: 0.5, pess: 2.0,
+    min: 0, max: 5, step: 0.1,
+    source: 'Whipple shield ~0.5-2 kg/m²',
+    type: 'slider',
+  },
+  // ── Modularity ──
+  frameMassPerMeter: {
+    category: 'Modularity',
+    name: 'Frame Mass per Meter',
+    unit: 'kg/m',
+    opt: 0.1, real: 0.3, pess: 0.8,
+    min: 0.05, max: 2, step: 0.05,
+    source: 'CFRP boom: ~0.1; Al truss: ~0.3-0.8',
+    type: 'slider',
+  },
+  // ── Financial ──
+  discountRate: {
+    category: 'Financial',
+    name: 'Discount Rate',
+    unit: '%',
+    opt: 5, real: 10, pess: 15,
+    min: 2, max: 25, step: 0.5,
+    source: 'Space venture: 10-15%; govt: 3-5%',
+    type: 'slider',
+  },
+  operationalLifeTarget: {
+    category: 'Financial',
+    name: 'Target Operational Life',
+    unit: 'years',
+    opt: 20, real: 10, pess: 5,
+    min: 1, max: 30, step: 1,
+    source: 'GEO sats ~15yr; LEO typically 5-10yr',
+    type: 'slider',
+  },
+  degradationThreshold: {
+    category: 'Financial',
+    name: 'End-of-Life Threshold',
+    unit: '%',
+    opt: 70, real: 80, pess: 90,
+    min: 50, max: 95, step: 1,
+    source: 'Fraction of BOL power at which asset is retired',
+    type: 'slider',
+  },
+  insuranceRate: {
+    category: 'Financial',
+    name: 'Annual Insurance Rate',
+    unit: '%',
+    opt: 1, real: 3, pess: 8,
+    min: 0, max: 15, step: 0.5,
+    source: 'Space insurance: 1-8% of asset value/yr',
+    type: 'slider',
+  },
+};
+
+// Current parameter values (mutable)
+let currentValues = {};
+
+function initCurrentValues(scenario) {
+  const key = scenario === 'moonshot' ? 'opt'
+            : scenario === 'conservative' ? 'pess'
+            : 'real'; // base
+  for (const [id, p] of Object.entries(PARAMS)) {
+    if (p.type === 'pill') {
+      currentValues[id] = p[key];
+    } else {
+      currentValues[id] = p[key];
+    }
+  }
+}
+
+// Scenario presets
+const SCENARIOS = {
+  moonshot: 'opt',
+  base: 'real',
+  conservative: 'pess',
+  custom: null,
+};
+
+let activeScenario = 'base';
+
+function setScenario(name) {
+  activeScenario = name;
+  if (name !== 'custom') {
+    initCurrentValues(name);
+    renderSidebar();
+  }
+  document.querySelectorAll('.scenario-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.scenario === name);
+  });
+  recompute();
+}
+
+function getVal(id) {
+  const v = currentValues[id];
+  const p = PARAMS[id];
+  if (p.type === 'pill' && p.values) return v;
+  return parseFloat(v);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR RENDERING
+   ═══════════════════════════════════════════════════════════════ */
+function renderSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const groups = {};
+  for (const [id, p] of Object.entries(PARAMS)) {
+    if (!groups[p.category]) groups[p.category] = [];
+    groups[p.category].push({ id, ...p });
+  }
+  let html = '';
+  for (const [cat, params] of Object.entries(groups)) {
+    html += `<div class="param-group">
+      <div class="param-group-header" onclick="this.parentElement.classList.toggle('collapsed')">${cat}</div>
+      <div class="param-group-body">`;
+    for (const p of params) {
+      const val = currentValues[p.id];
+      if (p.type === 'slider') {
+        const displayVal = formatParamValue(val, p);
+        html += `<div class="param-item">
+          <div class="param-label">
+            <span class="param-name" data-explain="param-${p.id}">${p.name}</span>
+            <span class="param-value" id="pv-${p.id}">${displayVal} ${p.unit}</span>
+          </div>
+          <input type="range" class="param-slider" id="ps-${p.id}"
+            min="${p.min}" max="${p.max}" step="${p.step}" value="${val}"
+            oninput="onSliderChange('${p.id}', this.value)">
+          <span class="source-link" title="${p.source}">${p.source}</span>
+        </div>`;
+      } else if (p.type === 'pill') {
+        const vals = p.values || [p.opt, p.real, p.pess];
+        const labels = p.labels || vals.map(v => String(v).charAt(0).toUpperCase() + String(v).slice(1));
+        html += `<div class="param-item">
+          <div class="param-label">
+            <span class="param-name" data-explain="param-${p.id}">${p.name}</span>
+          </div>
+          <div class="pill-group">`;
+        vals.forEach((v, i) => {
+          const cls = v === p.opt ? 'opt' : v === p.pess ? 'pess' : 'real';
+          const active = val === v ? ' active' : '';
+          html += `<button class="pill-btn ${cls}${active}" onclick="onPillChange('${p.id}','${v}')">${labels[i]}</button>`;
+        });
+        html += `</div>
+          <span class="source-link" title="${p.source}">${p.source}</span>
+        </div>`;
+      }
+    }
+    html += `</div></div>`;
+  }
+  sidebar.innerHTML = html;
+}
+
+function formatParamValue(val, p) {
+  if (typeof val === 'string') return val;
+  const v = parseFloat(val);
+  if (Math.abs(v) >= 1000) return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (Math.abs(v) >= 1) return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return v.toLocaleString('en-US', { maximumFractionDigits: 3 });
+}
+
+let recomputeTimer = null;
+function onSliderChange(id, val) {
+  currentValues[id] = parseFloat(val);
+  const p = PARAMS[id];
+  const el = document.getElementById(`pv-${id}`);
+  if (el) el.textContent = formatParamValue(val, p) + ' ' + p.unit;
+  activeScenario = 'custom';
+  document.querySelectorAll('.scenario-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.scenario === 'custom');
+  });
+  clearTimeout(recomputeTimer);
+  recomputeTimer = setTimeout(recompute, 60);
+}
+
+function onPillChange(id, val) {
+  currentValues[id] = val;
+  activeScenario = 'custom';
+  document.querySelectorAll('.scenario-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.scenario === 'custom');
+  });
+  // Re-render pills for this param
+  renderSidebar();
+  recompute();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHYSICS ENGINE
+   ═══════════════════════════════════════════════════════════════ */
+const PhysicsEngine = {
+
+  // ── Atmospheric density ──
+  // Piecewise exponential fit from NRLMSISE-00 / SMAD Table 8-4
+  // Returns density in kg/m³ for altitude in km
+  // Corrected density table from NRLMSISE-00 model runs
+  // low = solar minimum (F10.7~70), moderate = F10.7~150, high = solar max (F10.7~250)
+  // Source: Picone et al. 2002 JGR; NASA CCMC NRLMSISE-00; SMAD Table 8-4
+  densityTable: {
+    200: { low: 2.5e-10, moderate: 4.0e-10, high: 6.0e-10 },
+    300: { low: 5.0e-11, moderate: 1.5e-10, high: 5.0e-10 },
+    400: { low: 3.0e-12, moderate: 2.0e-11, high: 5.0e-11 },
+    500: { low: 5.0e-13, moderate: 3.0e-12, high: 2.0e-11 },
+    600: { low: 7.0e-14, moderate: 5.0e-13, high: 3.0e-12 },
+    700: { low: 2.0e-14, moderate: 7.0e-14, high: 5.0e-13 },
+    800: { low: 6.0e-15, moderate: 2.0e-14, high: 7.0e-14 },
+    900: { low: 2.5e-15, moderate: 8.0e-15, high: 3.0e-14 },
+    1000: { low: 1.2e-15, moderate: 4.0e-15, high: 1.5e-14 },
+    1100: { low: 7.0e-16, moderate: 2.5e-15, high: 8.0e-15 },
+    1200: { low: 4.0e-16, moderate: 1.5e-15, high: 5.0e-15 },
+  },
+
+  getDensity(altKm, solarActivity) {
+    const table = this.densityTable;
+    const alts = Object.keys(table).map(Number).sort((a,b) => a - b);
+
+    if (altKm <= alts[0]) return table[alts[0]][solarActivity];
+    if (altKm >= alts[alts.length-1]) return table[alts[alts.length-1]][solarActivity];
+
+    // Log-linear interpolation
+    let lo = alts[0], hi = alts[alts.length-1];
+    for (let i = 0; i < alts.length - 1; i++) {
+      if (altKm >= alts[i] && altKm <= alts[i+1]) {
+        lo = alts[i]; hi = alts[i+1]; break;
+      }
+    }
+    const frac = (altKm - lo) / (hi - lo);
+    const loD = Math.log(table[lo][solarActivity]);
+    const hiD = Math.log(table[hi][solarActivity]);
+    return Math.exp(loD + frac * (hiD - loD));
+  },
+
+  // ── Orbital velocity ──
+  orbitalVelocity(altKm) {
+    const r = CONST.R_EARTH + altKm * 1000;
+    return Math.sqrt(CONST.MU / r); // m/s
+  },
+
+  // ── Orbital period ──
+  orbitalPeriod(altKm) {
+    const r = CONST.R_EARTH + altKm * 1000;
+    return 2 * Math.PI * Math.sqrt(r * r * r / CONST.MU); // seconds
+  },
+
+  // ── SSO inclination (for J2 precession) ──
+  ssoInclination(altKm) {
+    const r = CONST.R_EARTH + altKm * 1000;
+    const a = r;
+    // J2 precession rate = -(3/2) n J2 (Re/a)^2 cos(i)
+    // For SSO: dΩ/dt = 360°/365.25 days = 1.991e-7 rad/s
+    const n = Math.sqrt(CONST.MU / (a * a * a));
+    const dOmega = 2 * Math.PI / (365.25 * 86400); // rad/s
+    const cosI = -dOmega / (1.5 * n * CONST.J2 * Math.pow(CONST.R_EARTH / a, 2));
+    return Math.acos(Math.max(-1, Math.min(1, cosI))) * 180 / Math.PI; // degrees
+  },
+
+  // ── Drag acceleration ──
+  // For area A (m²), mass m (kg)
+  dragAcceleration(altKm, solarActivity, Cd, area, mass) {
+    const rho = this.getDensity(altKm, solarActivity);
+    const v = this.orbitalVelocity(altKm);
+    return 0.5 * rho * v * v * Cd * area / mass; // m/s²
+  },
+
+  // ── Station-keeping ΔV per year ──
+  stationKeepingDV(altKm, solarActivity, Cd, area, mass) {
+    const aDrag = this.dragAcceleration(altKm, solarActivity, Cd, area, mass);
+    return aDrag * CONST.SECONDS_PER_YEAR; // m/s per year
+  },
+
+  // ── Solar radiation pressure force per m² ──
+  srpForcePerM2(reflectivity) {
+    // F = (S/c) * (1 + rho) per m²
+    return (CONST.SOLAR_FLUX / CONST.C_LIGHT) * (1 + reflectivity); // N/m²
+  },
+
+  // ── Thermal equilibrium temperature ──
+  // Panel absorbs (alpha - eta) * S on sun side, radiates from both sides
+  thermalEquilibrium(efficiency, absorptivity, emissivity) {
+    // alpha ≈ 0.92 for solar cells (absorb most visible light)
+    // eta = electrical efficiency (fraction converted to electricity)
+    // Remaining power is heat: (alpha - eta) * S
+    const alpha = absorptivity || 0.92;
+    const eps = emissivity || 0.85;
+    const heatFlux = (alpha - efficiency) * CONST.SOLAR_FLUX;
+    // Radiate from both sides: 2 * eps * sigma * T^4 = heatFlux
+    const T = Math.pow(heatFlux / (2 * eps * CONST.STEFAN_BOLTZMANN), 0.25);
+    return T; // Kelvin
+  },
+
+  // ── Thermal efficiency loss ──
+  thermalEfficiencyLoss(efficiency, tempCoeff, absorptivity, emissivity) {
+    const T = this.thermalEquilibrium(efficiency, absorptivity, emissivity);
+    const T_ref = 298.15; // 25°C reference
+    const deltaT = T - T_ref;
+    return tempCoeff * deltaT / 100; // fractional loss (negative tempCoeff makes this positive for T > Tref)
+  },
+
+  // ── Degradation model ──
+  // Returns efficiency fraction remaining at year t
+  degradationCurve(radiationDegPerYear, years) {
+    // Exponential decay: P(t) = P0 * (1 - deg_rate)^t
+    const results = [];
+    for (let t = 0; t <= years; t += 0.5) {
+      results.push({
+        year: t,
+        fraction: Math.pow(1 - radiationDegPerYear / 100, t),
+      });
+    }
+    return results;
+  },
+
+  // ── Effective efficiency at year t ──
+  effectiveEfficiency(panelEff, tempCoeff, radDegPerYear, year) {
+    const T = this.thermalEquilibrium(panelEff / 100, 0.92, 0.85);
+    const T_ref = 298.15;
+    const thermalFactor = 1 + tempCoeff / 100 * (T - T_ref);
+    const radFactor = Math.pow(1 - radDegPerYear / 100, year);
+    return panelEff / 100 * thermalFactor * radFactor;
+  },
+
+  // ── Asset lifetime (until degradation threshold) ──
+  assetLifetime(panelEff, tempCoeff, radDegPerYear, threshold) {
+    // Find year t where effectiveEfficiency drops to threshold * BOL_effective
+    const eff0 = this.effectiveEfficiency(panelEff, tempCoeff, radDegPerYear, 0);
+    const target = (threshold / 100) * eff0;
+    for (let t = 0.1; t <= 50; t += 0.1) {
+      if (this.effectiveEfficiency(panelEff, tempCoeff, radDegPerYear, t) < target) {
+        return t;
+      }
+    }
+    return 50; // >50 years = essentially unlimited
+  },
+
+  // ── Eclipse analysis for dawn-dusk SSO ──
+  // Dawn-dusk SSO keeps orbital plane along terminator. The beta angle (angle
+  // between orbital plane and Sun direction) oscillates due to obliquity:
+  //   β ≈ 90° − ε·|sin(2π·day/365.25)| where ε = 23.44°
+  // Eclipse occurs when β < ρ = arcsin(R_E/r)
+  eclipseAnalysis(altKm) {
+    const r = CONST.R_EARTH + altKm * 1000;
+    const rho = Math.asin(CONST.R_EARTH / r); // angular radius of Earth
+    const obliquity = 23.44 * Math.PI / 180;
+    const orbPeriod = 2 * Math.PI * Math.sqrt(r * r * r / CONST.MU) / 60; // minutes
+
+    let maxEclipseMin = 0;
+    let eclipseDays = 0;
+    let totalEclipseHrs = 0;
+
+    for (let day = 0; day < 365; day++) {
+      // Beta angle for dawn-dusk SSO varies with season
+      const beta = Math.PI / 2 - obliquity * Math.abs(Math.sin(2 * Math.PI * day / 365.25));
+      if (beta < rho) {
+        // Eclipse half-angle from geometry
+        const cosHalf = Math.sqrt(1 - Math.pow(CONST.R_EARTH / r, 2)) / Math.cos(beta);
+        if (cosHalf < 1) {
+          const halfAngle = Math.acos(cosHalf);
+          const eclFrac = halfAngle / Math.PI;
+          const eclMin = eclFrac * orbPeriod;
+          maxEclipseMin = Math.max(maxEclipseMin, eclMin);
+          eclipseDays++;
+          // Approximate total eclipse hours across all orbits that day
+          totalEclipseHrs += eclMin * (1440 / orbPeriod) / 60;
+        }
+      }
+    }
+
+    return {
+      maxEclipseMin,        // longest single eclipse (minutes)
+      eclipseDays,          // days per year with any eclipse
+      totalEclipseHrs,      // total hours in shadow per year
+      batteryWhPerKw: maxEclipseMin / 60 * 1000, // Wh storage needed per kW capacity
+      orbPeriodMin: orbPeriod,
+    };
+  },
+
+  // ── Specific orbital energy (energy to reach orbit per kg) ──
+  specificOrbitalEnergy(altKm) {
+    const r = CONST.R_EARTH + altKm * 1000;
+    const v = Math.sqrt(CONST.MU / r);
+    // Specific orbital energy = v²/2 - μ/r = -μ/(2r), but for launch we need
+    // total energy from surface: kinetic + potential change
+    const vSurface = 465; // m/s equatorial rotation speed (less at SSO latitude)
+    const vOrbit = v;
+    // Hohmann-like ΔV from surface (simplified: not accounting for gravity/drag losses)
+    // Actual launch ΔV ≈ orbital velocity + gravity losses (~1.2-1.5 km/s) + drag losses (~0.1-0.3 km/s)
+    const gravityLoss = 1300; // m/s typical
+    const dragLoss = 200;    // m/s typical
+    const launchDV = vOrbit - vSurface * Math.cos(97.5 * Math.PI / 180) + gravityLoss + dragLoss;
+    // Kinetic energy per kg = 0.5 * dv²
+    const kineticJ = 0.5 * launchDV * launchDV;
+    // Potential energy change per kg
+    const potentialJ = CONST.MU / CONST.R_EARTH - CONST.MU / r;
+    const totalJ = kineticJ + potentialJ;
+    return {
+      launchDV,                          // m/s
+      kineticKWhPerKg: kineticJ / 3.6e6, // kWh/kg
+      potentialKWhPerKg: potentialJ / 3.6e6,
+      totalKWhPerKg: totalJ / 3.6e6,
+      totalMJPerKg: totalJ / 1e6,
+    };
+  },
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ECONOMICS ENGINE
+   ═══════════════════════════════════════════════════════════════ */
+const EconomicsEngine = {
+
+  // ── Power per m² (effective at BOL, after thermal loss, adjusted for sunlight fraction) ──
+  powerPerM2(panelEff, tempCoeff, dawnDuskFraction) {
+    const effFrac = PhysicsEngine.effectiveEfficiency(panelEff, tempCoeff, 0, 0);
+    const sunFrac = (dawnDuskFraction || 100) / 100;
+    return CONST.SOLAR_FLUX * effFrac * sunFrac; // W/m²
+  },
+
+  // ── Total system mass per m² ──
+  systemMassPerM2(panelMassPerM2, structureOverhead, shieldingMassPerM2, segmentSize, frameMassPerMeter) {
+    const panelMass = panelMassPerM2;
+    const structMass = panelMass * structureOverhead / 100;
+    const shieldMass = shieldingMassPerM2;
+    // Frame mass: perimeter of segment / area → 4*sqrt(A)/A = 4/sqrt(A) per m²
+    const sideLen = Math.sqrt(segmentSize);
+    const perimPerM2 = 4 * sideLen / segmentSize; // = 4/sqrt(segmentSize)
+    const frameMass = frameMassPerMeter * perimPerM2;
+    return panelMass + structMass + shieldMass + frameMass;
+  },
+
+  // ── Mass per watt ──
+  massPerWatt(params) {
+    const ppm2 = this.powerPerM2(params.panelEfficiency, params.tempCoefficient, params.dawnDuskFraction);
+    const mpm2 = this.systemMassPerM2(
+      params.panelMassPerM2, params.structureOverhead,
+      params.shieldingMassPerM2, params.segmentSize, params.frameMassPerMeter
+    );
+    return mpm2 / ppm2; // kg/W
+  },
+
+  // ── Launch cost per watt ──
+  launchCostPerW(params) {
+    return this.massPerWatt(params) * params.launchCostPerKg;
+  },
+
+  // ── Panel acquisition cost per watt ──
+  panelAcquisitionCostPerW(params) {
+    return params.panelCostPerW;
+  },
+
+  // ── Station-keeping cost per watt per year ──
+  stationKeepingCostPerWPerYear(params) {
+    const ppm2 = this.powerPerM2(params.panelEfficiency, params.tempCoefficient, params.dawnDuskFraction);
+    const mpm2 = this.systemMassPerM2(
+      params.panelMassPerM2, params.structureOverhead,
+      params.shieldingMassPerM2, params.segmentSize, params.frameMassPerMeter
+    );
+
+    // For 1 m² of panel:
+    const area = 1; // m²
+    const mass = mpm2; // kg
+    const dv = PhysicsEngine.stationKeepingDV(
+      params.altitude, params.solarActivity, params.dragCoefficient, area, mass
+    );
+
+    // Propellant mass via Tsiolkovsky: m_prop = m * (exp(dv / (Isp * g0)) - 1)
+    const Isp = params.propulsionType === 'hall' ? 3000 : 320;
+    const g0 = 9.80665;
+    const propMassPerYear = mass * (Math.exp(dv / (Isp * g0)) - 1);
+
+    // Cost = propellant mass * launch cost/kg (must be launched)
+    const costPerM2PerYear = propMassPerYear * params.launchCostPerKg;
+    return costPerM2PerYear / ppm2; // $/W/year
+  },
+
+  // ── NPV of station-keeping costs over lifetime ──
+  stationKeepingNPVPerW(params, lifetimeYears) {
+    const annualCost = this.stationKeepingCostPerWPerYear(params);
+    const r = params.discountRate / 100;
+    // NPV of annuity: C * (1 - (1+r)^-n) / r
+    if (r < 0.001) return annualCost * lifetimeYears;
+    return annualCost * (1 - Math.pow(1 + r, -lifetimeYears)) / r;
+  },
+
+  // ── Insurance NPV per watt ──
+  insuranceNPVPerW(deployedCostPerW, params, lifetimeYears) {
+    const annualInsurance = deployedCostPerW * params.insuranceRate / 100;
+    const r = params.discountRate / 100;
+    if (r < 0.001) return annualInsurance * lifetimeYears;
+    return annualInsurance * (1 - Math.pow(1 + r, -lifetimeYears)) / r;
+  },
+
+  // ── Full cost breakdown ──
+  costBreakdown(params) {
+    const lifetime = Math.min(
+      params.operationalLifeTarget,
+      PhysicsEngine.assetLifetime(params.panelEfficiency, params.tempCoefficient,
+        params.radiationDegPerYear, params.degradationThreshold)
+    );
+
+    const panelCost = this.panelAcquisitionCostPerW(params);
+    const launchCost = this.launchCostPerW(params);
+    const skNPV = this.stationKeepingNPVPerW(params, lifetime);
+
+    // Structure cost is embedded in launch cost; separate it for waterfall
+    const mpm2 = this.systemMassPerM2(
+      params.panelMassPerM2, params.structureOverhead,
+      params.shieldingMassPerM2, params.segmentSize, params.frameMassPerMeter
+    );
+    const ppm2 = this.powerPerM2(params.panelEfficiency, params.tempCoefficient, params.dawnDuskFraction);
+    const panelMassPerW = params.panelMassPerM2 / ppm2;
+    const structMassPerW = (mpm2 - params.panelMassPerM2) / ppm2;
+    const panelLaunchCost = panelMassPerW * params.launchCostPerKg;
+    const structLaunchCost = structMassPerW * params.launchCostPerKg;
+
+    // Ground ops cost distributed per watt: ($/launch) / (W per launch)
+    const payloadPerLaunch = params.starshipPayloadSSO * 1000; // kg
+    const wPerLaunch = payloadPerLaunch / (mpm2 / ppm2); // W per launch
+    const groundOpsCostPerW = (params.groundOpsCostPerLaunch * 1e6) / wPerLaunch;
+
+    const deployedCost = panelCost + launchCost + groundOpsCostPerW;
+    const insNPV = this.insuranceNPVPerW(deployedCost, params, lifetime);
+
+    // Debris reserve: expected loss rate × replacement cost × NPV factor
+    const debrisAnnualLoss = RiskEngine.expectedAnnualLoss(params);
+    const debrisNPV = debrisAnnualLoss * deployedCost *
+      (params.discountRate / 100 < 0.001 ? lifetime :
+       (1 - Math.pow(1 + params.discountRate / 100, -lifetime)) / (params.discountRate / 100));
+
+    const totalCostPerW = panelCost + panelLaunchCost + structLaunchCost + groundOpsCostPerW + skNPV + insNPV + debrisNPV;
+
+    return {
+      panelCost,
+      panelLaunchCost,
+      structLaunchCost,
+      groundOpsCost: groundOpsCostPerW,
+      stationKeepingNPV: skNPV,
+      insuranceNPV: insNPV,
+      debrisReserveNPV: debrisNPV,
+      totalCostPerW,
+      lifetime,
+      massPerWatt: this.massPerWatt(params),
+      powerPerM2: ppm2,
+      massPerM2: mpm2,
+    };
+  },
+
+  // ── Scale to 1 GW ──
+  scaleTo1GW(params, breakdown) {
+    const targetW = 1e9; // 1 GW
+    const totalArea = targetW / breakdown.powerPerM2; // m²
+    const totalMass = totalArea * breakdown.massPerM2; // kg
+    const payloadPerLaunch = params.starshipPayloadSSO * 1000; // kg
+    const numLaunches = Math.ceil(totalMass / payloadPerLaunch);
+    const programCost = targetW * breakdown.totalCostPerW;
+    return { targetW, totalArea, totalMass, numLaunches, programCost };
+  },
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RISK ENGINE
+   ═══════════════════════════════════════════════════════════════ */
+const RiskEngine = {
+
+  // ── Debris flux by size (parameterized from ORDEM 3.1) ──
+  // Returns flux in impacts / m² / year for a given altitude and size bucket
+  // Size buckets: 'submm' (<1mm), 'mm' (1-10mm), 'cm' (1-10cm), 'large' (>10cm)
+  baseFlux: {
+    // At 800 km (high debris region near SSO)
+    submm: 0.01,     // ~0.01 impacts/m²/yr for >0.1mm
+    mm:    5e-4,      // ~5e-4 for >1mm
+    cm:    2e-5,      // ~2e-5 for >1cm
+    large: 3e-7,      // ~3e-7 for >10cm
+  },
+
+  // Altitude scaling factor (debris peaks ~750-900 km)
+  altitudeScaling(altKm) {
+    // Approximate relative debris density by altitude
+    // Peak at ~800 km, drops at lower and higher altitudes
+    const peak = 800;
+    const sigma = 250;
+    return 0.2 + 0.8 * Math.exp(-0.5 * Math.pow((altKm - peak) / sigma, 2));
+  },
+
+  getFlux(altKm, sizeBucket, fluxMultiplier) {
+    return this.baseFlux[sizeBucket] * this.altitudeScaling(altKm) * fluxMultiplier;
+  },
+
+  // ── Damage fraction per impact by size ──
+  damageFraction: {
+    submm: 0.0001,  // 0.01% — pitting, minor
+    mm:    0.005,    // 0.5% — localized panel damage
+    cm:    0.05,     // 5% — segment loss (if modular)
+    large: 1.0,      // 100% — catastrophic
+  },
+
+  // ── With shielding: sub-mm and mm are mitigated ──
+  effectiveDamage(sizeBucket, shieldingMassPerM2) {
+    // Whipple shielding reduces damage from sub-cm impacts
+    const shieldFactor = sizeBucket === 'submm' ? Math.exp(-2 * shieldingMassPerM2) :
+                         sizeBucket === 'mm' ? Math.exp(-1 * shieldingMassPerM2) :
+                         1.0; // cm and large not stopped by thin shielding
+    return this.damageFraction[sizeBucket] * shieldFactor;
+  },
+
+  // ── Expected annual capacity loss fraction ──
+  expectedAnnualLoss(params) {
+    let totalLoss = 0;
+    for (const bucket of ['submm', 'mm', 'cm', 'large']) {
+      const flux = this.getFlux(params.altitude, bucket, params.debrisFluxMultiplier);
+      const dmg = this.effectiveDamage(bucket, params.shieldingMassPerM2);
+      // For modular panels, cm impacts only damage one segment
+      const effectiveDmg = bucket === 'cm' ?
+        Math.min(dmg, params.segmentSize / 100) : // Segment size limits damage
+        dmg;
+      totalLoss += flux * effectiveDmg;
+    }
+    return totalLoss; // fraction/year
+  },
+
+  // ── Survival probability (no catastrophic loss) vs time ──
+  survivalProbability(altKm, area, fluxMultiplier, years) {
+    const fluxLarge = this.getFlux(altKm, 'large', fluxMultiplier);
+    // P(survive) = exp(-flux * area * t) for Poisson process
+    const results = [];
+    for (let t = 0; t <= years; t += 0.5) {
+      results.push({
+        year: t,
+        probability: Math.exp(-fluxLarge * area * t),
+      });
+    }
+    return results;
+  },
+
+  // ── Survival for different segment sizes ──
+  survivalBySegmentSize(altKm, totalArea, fluxMultiplier, segmentSizes, years) {
+    const results = {};
+    for (const ss of segmentSizes) {
+      const numSegments = totalArea / ss;
+      const fluxCm = this.getFlux(altKm, 'cm', fluxMultiplier);
+      const fluxLarge = this.getFlux(altKm, 'large', fluxMultiplier);
+      results[ss] = [];
+      for (let t = 0; t <= years; t += 0.5) {
+        // Probability no segment has catastrophic hit
+        const pNoCatastrophe = Math.exp(-fluxLarge * totalArea * t);
+        // Expected fraction surviving cm impacts (each kills one segment)
+        const expectedCmHits = fluxCm * totalArea * t;
+        const fractionSurviving = Math.max(0, 1 - expectedCmHits / numSegments) * pNoCatastrophe;
+        results[ss].push({ year: t, fraction: fractionSurviving });
+      }
+    }
+    return results;
+  },
+};
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MODEL ORCHESTRATOR
+   ═══════════════════════════════════════════════════════════════ */
+function buildParams() {
+  return {
+    altitude: getVal('altitude'),
+    solarActivity: getVal('solarActivity'),
+    dawnDuskFraction: getVal('dawnDuskFraction'),
+    panelEfficiency: getVal('panelEfficiency'),
+    panelMassPerM2: getVal('panelMassPerM2'),
+    structureOverhead: getVal('structureOverhead'),
+    radiationDegPerYear: getVal('radiationDegPerYear'),
+    tempCoefficient: getVal('tempCoefficient'),
+    panelCostPerW: getVal('panelCostPerW'),
+    launchCostPerKg: getVal('launchCostPerKg'),
+    starshipPayloadSSO: getVal('starshipPayloadSSO'),
+    groundOpsCostPerLaunch: getVal('groundOpsCostPerLaunch'),
+    propulsionType: getVal('propulsionType'),
+    dragCoefficient: getVal('dragCoefficient'),
+    panelReflectivity: getVal('panelReflectivity'),
+    debrisFluxMultiplier: getVal('debrisFluxMultiplier'),
+    segmentSize: getVal('segmentSize'),
+    shieldingMassPerM2: getVal('shieldingMassPerM2'),
+    frameMassPerMeter: getVal('frameMassPerMeter'),
+    discountRate: getVal('discountRate'),
+    operationalLifeTarget: getVal('operationalLifeTarget'),
+    degradationThreshold: getVal('degradationThreshold'),
+    insuranceRate: getVal('insuranceRate'),
+  };
+}
+
+function runModel() {
+  const p = buildParams();
+  const breakdown = EconomicsEngine.costBreakdown(p);
+  const scale1GW = EconomicsEngine.scaleTo1GW(p, breakdown);
+  const lifetime = breakdown.lifetime;
+
+  // Physics outputs
+  const density = PhysicsEngine.getDensity(p.altitude, p.solarActivity);
+  const orbVel = PhysicsEngine.orbitalVelocity(p.altitude);
+  const ssoIncl = PhysicsEngine.ssoInclination(p.altitude);
+  const thermalT = PhysicsEngine.thermalEquilibrium(p.panelEfficiency / 100, 0.92, 0.85);
+  const effEff0 = PhysicsEngine.effectiveEfficiency(p.panelEfficiency, p.tempCoefficient, p.radiationDegPerYear, 0);
+
+  // Degradation curve
+  const degCurve = [];
+  for (let t = 0; t <= 25; t += 0.5) {
+    degCurve.push({
+      year: t,
+      efficiency: PhysicsEngine.effectiveEfficiency(p.panelEfficiency, p.tempCoefficient, p.radiationDegPerYear, t) * 100,
+    });
+  }
+
+  // Altitude sweep for optimizer chart
+  const altSweep = [];
+  for (let alt = 400; alt <= 1200; alt += 20) {
+    const pp = { ...p, altitude: alt };
+    const bd = EconomicsEngine.costBreakdown(pp);
+    altSweep.push({
+      altitude: alt,
+      totalCostPerW: bd.totalCostPerW,
+      panelCost: bd.panelCost,
+      launchCost: bd.panelLaunchCost + bd.structLaunchCost,
+      skCost: bd.stationKeepingNPV,
+      debrisCost: bd.debrisReserveNPV,
+    });
+  }
+
+  // Drag sweep for drag chart
+  const dragSweep = [];
+  for (let alt = 400; alt <= 1200; alt += 20) {
+    const area = 1, mass = breakdown.massPerM2;
+    dragSweep.push({
+      altitude: alt,
+      densityLow: PhysicsEngine.getDensity(alt, 'low'),
+      densityMod: PhysicsEngine.getDensity(alt, 'moderate'),
+      densityHigh: PhysicsEngine.getDensity(alt, 'high'),
+      dvLow: PhysicsEngine.stationKeepingDV(alt, 'low', p.dragCoefficient, area, mass),
+      dvMod: PhysicsEngine.stationKeepingDV(alt, 'moderate', p.dragCoefficient, area, mass),
+      dvHigh: PhysicsEngine.stationKeepingDV(alt, 'high', p.dragCoefficient, area, mass),
+    });
+  }
+
+  // Debris survival curves for different segment sizes
+  const segSizes = [1, 4, 9, 16, 25];
+  const debrisSurv = RiskEngine.survivalBySegmentSize(
+    p.altitude, scale1GW.totalArea, p.debrisFluxMultiplier, segSizes, 25
+  );
+
+  // Sensitivity analysis for tornado chart
+  const sensitivity = computeSensitivity(p, breakdown.totalCostPerW);
+
+  // 1 GW timeline at various cadences
+  const cadences = [1, 2, 4, 8, 16]; // launches per month
+  const timelineData = {};
+  for (const cad of cadences) {
+    const payloadPerLaunch = p.starshipPayloadSSO * 1000;
+    const wPerLaunch = payloadPerLaunch / breakdown.massPerWatt;
+    const timeline = [];
+    let cumulW = 0;
+    for (let month = 0; month <= 120; month++) {
+      cumulW += cad * wPerLaunch;
+      timeline.push({ month, gw: Math.min(cumulW / 1e9, 1.0) });
+      if (cumulW >= 1e9) break;
+    }
+    timelineData[cad] = timeline;
+  }
+
+  // Eclipse & launch energy sweep
+  const eclipseSweep = [];
+  const launchEnergySweep = [];
+  for (let alt = 300; alt <= 1200; alt += 10) {
+    eclipseSweep.push({ altitude: alt, ...PhysicsEngine.eclipseAnalysis(alt) });
+    launchEnergySweep.push({ altitude: alt, ...PhysicsEngine.specificOrbitalEnergy(alt) });
+  }
+  const currentEclipse = PhysicsEngine.eclipseAnalysis(p.altitude);
+
+  // Thermal energy flow
+  const alpha = 0.92;
+  const eta = effEff0;
+  const solarIn = CONST.SOLAR_FLUX;
+  const electricOut = solarIn * eta;
+  const heatGenerated = solarIn * (alpha - eta);
+  const reflected = solarIn * (1 - alpha);
+
+  return {
+    params: p,
+    breakdown,
+    scale1GW,
+    lifetime,
+    density,
+    orbVel,
+    ssoIncl,
+    thermalT,
+    effEff0,
+    degCurve,
+    altSweep,
+    dragSweep,
+    debrisSurv,
+    sensitivity,
+    timelineData,
+    thermal: { solarIn, electricOut, heatGenerated, reflected, tempK: thermalT },
+    cadences,
+    segSizes,
+    eclipseSweep,
+    launchEnergySweep,
+    currentEclipse,
+  };
+}
+
+function computeSensitivity(baseParams, baseCost) {
+  // Vary each parameter from optimistic to pessimistic, measure $/W impact
+  const sensitiveParams = [
+    'launchCostPerKg', 'panelCostPerW', 'panelEfficiency', 'panelMassPerM2',
+    'structureOverhead', 'altitude', 'radiationDegPerYear', 'discountRate',
+    'operationalLifeTarget', 'dragCoefficient', 'debrisFluxMultiplier',
+    'segmentSize', 'shieldingMassPerM2', 'insuranceRate',
+  ];
+
+  const results = [];
+  for (const pid of sensitiveParams) {
+    const pDef = PARAMS[pid];
+    if (pDef.type === 'pill') continue;
+
+    // Optimistic
+    const pOpt = { ...baseParams, [pid]: pDef.opt };
+    const costOpt = EconomicsEngine.costBreakdown(pOpt).totalCostPerW;
+
+    // Pessimistic
+    const pPess = { ...baseParams, [pid]: pDef.pess };
+    const costPess = EconomicsEngine.costBreakdown(pPess).totalCostPerW;
+
+    results.push({
+      name: pDef.name,
+      id: pid,
+      optCost: costOpt,
+      pessCost: costPess,
+      baseCost: baseCost,
+      swing: Math.abs(costPess - costOpt),
+    });
+  }
+
+  results.sort((a, b) => b.swing - a.swing);
+  return results.slice(0, 10);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   CHART RENDERERS
+   ═══════════════════════════════════════════════════════════════ */
+const plotlyLayout = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { family: '-apple-system, BlinkMacSystemFont, sans-serif', color: '#8b949e', size: 11 },
+  margin: { t: 10, r: 20, b: 50, l: 60 },
+  xaxis: { gridcolor: '#21262d', zerolinecolor: '#30363d', linecolor: '#30363d' },
+  yaxis: { gridcolor: '#21262d', zerolinecolor: '#30363d', linecolor: '#30363d' },
+  legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
+  hoverlabel: { bgcolor: '#1c2128', bordercolor: '#30363d', font: { color: '#e6edf3', size: 12 } },
+};
+
+const plotlyConfig = { responsive: true, displayModeBar: false };
+
+function renderWaterfallChart(results) {
+  const bd = results.breakdown;
+  const categories = ['Panel Acq.', 'Panel Launch', 'Struct Launch', 'Ground Ops', 'Stn-Keep NPV', 'Insurance NPV', 'Debris Rsv', 'Total $/W'];
+  const values = [bd.panelCost, bd.panelLaunchCost, bd.structLaunchCost, bd.groundOpsCost, bd.stationKeepingNPV, bd.insuranceNPV, bd.debrisReserveNPV, bd.totalCostPerW];
+  const colors = ['#58a6ff', '#3fb950', '#39d2c0', '#6e7681', '#d29922', '#bc8cff', '#f85149', '#e6edf3'];
+
+  const trace = {
+    x: categories,
+    y: values,
+    type: 'bar',
+    marker: { color: colors },
+    text: values.map(v => '$' + formatNumber(v)),
+    textposition: 'outside',
+    textfont: { color: '#8b949e', size: 10 },
+    hovertemplate: '%{x}: $%{y:.2f}/W<extra></extra>',
+  };
+
+  const layout = {
+    ...plotlyLayout,
+    yaxis: { ...plotlyLayout.yaxis, title: '$/W', rangemode: 'tozero' },
+    showlegend: false,
+  };
+
+  Plotly.react('chart-waterfall', [trace], layout, plotlyConfig);
+}
+
+function renderAltitudeChart(results) {
+  const data = results.altSweep;
+  const alts = data.map(d => d.altitude);
+
+  const traces = [
+    { x: alts, y: data.map(d => d.launchCost), name: 'Launch', line: { color: '#3fb950' }, mode: 'lines' },
+    { x: alts, y: data.map(d => d.skCost), name: 'Station-Keeping', line: { color: '#d29922' }, mode: 'lines' },
+    { x: alts, y: data.map(d => d.debrisCost), name: 'Debris', line: { color: '#f85149' }, mode: 'lines' },
+    { x: alts, y: data.map(d => d.totalCostPerW), name: 'Total $/W', line: { color: '#58a6ff', width: 3 }, mode: 'lines' },
+  ];
+
+  // Find minimum
+  let minCost = Infinity, minAlt = 0;
+  for (const d of data) {
+    if (d.totalCostPerW < minCost) { minCost = d.totalCostPerW; minAlt = d.altitude; }
+  }
+
+  traces.push({
+    x: [minAlt], y: [minCost],
+    mode: 'markers+text',
+    marker: { color: '#58a6ff', size: 10, symbol: 'diamond' },
+    text: [`Sweet spot: ${minAlt} km\n$${formatNumber(minCost)}/W`],
+    textposition: 'top right',
+    textfont: { color: '#58a6ff', size: 10 },
+    showlegend: false,
+    hoverinfo: 'skip',
+  });
+
+  const layout = {
+    ...plotlyLayout,
+    xaxis: { ...plotlyLayout.xaxis, title: 'Altitude (km)' },
+    yaxis: { ...plotlyLayout.yaxis, title: '$/W Component', type: 'log', rangemode: 'tozero' },
+    legend: { ...plotlyLayout.legend, x: 0.02, y: 0.98 },
+  };
+
+  Plotly.react('chart-altitude', traces, layout, plotlyConfig);
+}
+
+function renderDragChart(results) {
+  const data = results.dragSweep;
+  const alts = data.map(d => d.altitude);
+
+  const traces = [
+    // Density (left y-axis)
+    { x: alts, y: data.map(d => d.densityLow), name: 'Density (Solar Min)', line: { color: '#3fb950', dash: 'dot' }, yaxis: 'y' },
+    { x: alts, y: data.map(d => d.densityMod), name: 'Density (Moderate)', line: { color: '#d29922' }, yaxis: 'y' },
+    { x: alts, y: data.map(d => d.densityHigh), name: 'Density (Solar Max)', line: { color: '#f85149', dash: 'dash' }, yaxis: 'y' },
+    // ΔV (right y-axis)
+    { x: alts, y: data.map(d => d.dvLow), name: 'ΔV (Solar Min)', line: { color: '#3fb950', dash: 'dot', width: 1 }, yaxis: 'y2', showlegend: false },
+    { x: alts, y: data.map(d => d.dvMod), name: 'ΔV (Moderate)', line: { color: '#d29922', width: 1 }, yaxis: 'y2', showlegend: false },
+    { x: alts, y: data.map(d => d.dvHigh), name: 'ΔV (Solar Max)', line: { color: '#f85149', dash: 'dash', width: 1 }, yaxis: 'y2', showlegend: false },
+  ];
+
+  const layout = {
+    ...plotlyLayout,
+    xaxis: { ...plotlyLayout.xaxis, title: 'Altitude (km)' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Density (kg/m³)', type: 'log', side: 'left' },
+    yaxis2: {
+      title: 'ΔV (m/s/yr)',
+      type: 'log',
+      overlaying: 'y',
+      side: 'right',
+      gridcolor: 'rgba(33,38,45,0.3)',
+      linecolor: '#30363d',
+      font: { color: '#8b949e' },
+    },
+    legend: { ...plotlyLayout.legend, x: 0.5, y: 0.98, xanchor: 'center' },
+  };
+
+  Plotly.react('chart-drag', traces, layout, plotlyConfig);
+}
+
+function renderDegradationChart(results) {
+  const data = results.degCurve;
+  const p = results.params;
+  const eff0 = data[0].efficiency;
+  const threshold = p.degradationThreshold / 100 * eff0;
+
+  const traces = [
+    {
+      x: data.map(d => d.year), y: data.map(d => d.efficiency),
+      name: 'Effective Efficiency', line: { color: '#58a6ff', width: 2 },
+      fill: 'tozeroy', fillcolor: 'rgba(88,166,255,0.1)',
+    },
+    {
+      x: [0, 25], y: [threshold, threshold],
+      name: `EOL Threshold (${p.degradationThreshold}%)`,
+      line: { color: '#f85149', dash: 'dash', width: 1 },
+    },
+  ];
+
+  // Mark asset lifetime
+  if (results.lifetime < 25) {
+    traces.push({
+      x: [results.lifetime], y: [threshold],
+      mode: 'markers+text',
+      marker: { color: '#f85149', size: 8 },
+      text: [`EOL: ${results.lifetime.toFixed(1)} yr`],
+      textposition: 'top right',
+      textfont: { color: '#f85149', size: 10 },
+      showlegend: false,
+    });
+  }
+
+  const layout = {
+    ...plotlyLayout,
+    xaxis: { ...plotlyLayout.xaxis, title: 'Years', range: [0, 25] },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Efficiency (%)', rangemode: 'tozero' },
+    legend: { ...plotlyLayout.legend, x: 0.6, y: 0.98 },
+  };
+
+  Plotly.react('chart-degradation', traces, layout, plotlyConfig);
+}
+
+function renderDebrisChart(results) {
+  const colors = ['#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f85149'];
+  const traces = [];
+  results.segSizes.forEach((ss, i) => {
+    const data = results.debrisSurv[ss];
+    traces.push({
+      x: data.map(d => d.year), y: data.map(d => d.fraction * 100),
+      name: `${ss} m² segments`,
+      line: { color: colors[i] },
+    });
+  });
+
+  const layout = {
+    ...plotlyLayout,
+    xaxis: { ...plotlyLayout.xaxis, title: 'Years' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Capacity Surviving (%)', range: [0, 105] },
+    legend: { ...plotlyLayout.legend, x: 0.6, y: 0.15 },
+  };
+
+  Plotly.react('chart-debris', traces, layout, plotlyConfig);
+}
+
+function renderTornadoChart(results) {
+  const sens = results.sensitivity;
+  const names = sens.map(s => s.name).reverse();
+  const baseCost = results.breakdown.totalCostPerW;
+
+  const optDeltas = sens.map(s => s.optCost - baseCost).reverse();
+  const pessDeltas = sens.map(s => s.pessCost - baseCost).reverse();
+
+  const traces = [
+    {
+      y: names, x: optDeltas, type: 'bar', orientation: 'h',
+      name: 'Optimistic', marker: { color: '#3fb950' },
+      hovertemplate: '%{y}: %{x:+$.2f}/W<extra>Optimistic</extra>',
+    },
+    {
+      y: names, x: pessDeltas, type: 'bar', orientation: 'h',
+      name: 'Pessimistic', marker: { color: '#f85149' },
+      hovertemplate: '%{y}: %{x:+$.2f}/W<extra>Pessimistic</extra>',
+    },
+  ];
+
+  const layout = {
+    ...plotlyLayout,
+    barmode: 'overlay',
+    xaxis: { ...plotlyLayout.xaxis, title: 'Δ $/W from Base Case', zeroline: true, zerolinecolor: '#484f58', zerolinewidth: 2 },
+    yaxis: { ...plotlyLayout.yaxis, automargin: true },
+    margin: { ...plotlyLayout.margin, l: 140 },
+    legend: { ...plotlyLayout.legend, x: 0.7, y: 0.1 },
+  };
+
+  Plotly.react('chart-tornado', traces, layout, plotlyConfig);
+}
+
+function renderTimelineChart(results) {
+  const colors = ['#58a6ff', '#3fb950', '#d29922', '#bc8cff', '#f85149'];
+  const traces = [];
+  results.cadences.forEach((cad, i) => {
+    const data = results.timelineData[cad];
+    traces.push({
+      x: data.map(d => d.month), y: data.map(d => d.gw),
+      name: `${cad} launch/mo`,
+      line: { color: colors[i] },
+    });
+  });
+
+  // 1 GW target line
+  traces.push({
+    x: [0, 120], y: [1, 1],
+    name: '1 GW Target',
+    line: { color: '#484f58', dash: 'dash', width: 1 },
+    showlegend: false,
+  });
+
+  const layout = {
+    ...plotlyLayout,
+    xaxis: { ...plotlyLayout.xaxis, title: 'Months' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Cumulative GW', range: [0, 1.1] },
+    legend: { ...plotlyLayout.legend, x: 0.02, y: 0.98 },
+  };
+
+  Plotly.react('chart-timeline', traces, layout, plotlyConfig);
+}
+
+function renderThermalChart(results) {
+  const th = results.thermal;
+  const tempC = th.tempK - 273.15;
+
+  // Sankey-style using a stacked bar
+  const categories = ['Solar Input', 'Reflected', 'Electricity', 'Waste Heat\n→ Radiated'];
+  const values = [th.solarIn, th.reflected, th.electricOut, th.heatGenerated];
+  const colors = ['#d29922', '#6e7681', '#3fb950', '#f85149'];
+
+  // Use a more informative horizontal bar approach
+  const traces = [
+    {
+      x: [th.electricOut],
+      y: ['Energy Budget'],
+      type: 'bar',
+      orientation: 'h',
+      name: `Electricity (${(th.electricOut).toFixed(0)} W/m²)`,
+      marker: { color: '#3fb950' },
+    },
+    {
+      x: [th.heatGenerated],
+      y: ['Energy Budget'],
+      type: 'bar',
+      orientation: 'h',
+      name: `Waste Heat (${(th.heatGenerated).toFixed(0)} W/m²)`,
+      marker: { color: '#f85149' },
+    },
+    {
+      x: [th.reflected],
+      y: ['Energy Budget'],
+      type: 'bar',
+      orientation: 'h',
+      name: `Reflected (${(th.reflected).toFixed(0)} W/m²)`,
+      marker: { color: '#6e7681' },
+    },
+  ];
+
+  // Add temperature annotation
+  const layout = {
+    ...plotlyLayout,
+    barmode: 'stack',
+    xaxis: { ...plotlyLayout.xaxis, title: 'W/m²', rangemode: 'tozero' },
+    yaxis: { ...plotlyLayout.yaxis, showticklabels: false },
+    legend: { ...plotlyLayout.legend, x: 0.02, y: -0.15, orientation: 'h' },
+    margin: { ...plotlyLayout.margin, b: 80 },
+    annotations: [
+      {
+        x: th.solarIn / 2, y: 'Energy Budget',
+        text: `Solar Input: ${th.solarIn} W/m²`,
+        showarrow: false,
+        font: { color: '#e6edf3', size: 12 },
+        yshift: 30,
+      },
+      {
+        x: th.solarIn / 2, y: 'Energy Budget',
+        text: `Equilibrium: ${tempC.toFixed(1)}°C (${th.tempK.toFixed(1)} K)`,
+        showarrow: false,
+        font: { color: '#d29922', size: 13, family: 'monospace' },
+        yshift: -35,
+      },
+    ],
+  };
+
+  Plotly.react('chart-thermal', traces, layout, plotlyConfig);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ECLIPSE & BATTERY CHART
+   ═══════════════════════════════════════════════════════════════ */
+function renderEclipseChart(results) {
+  const sweep = results.eclipseSweep;
+  const alts = sweep.map(d => d.altitude);
+  const curAlt = results.params.altitude;
+
+  // Trace 1: Max eclipse duration (left y-axis)
+  const traceEclipse = {
+    x: alts,
+    y: sweep.map(d => d.maxEclipseMin),
+    name: 'Max Eclipse (min)',
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#f85149', width: 2.5 },
+    fill: 'tozeroy',
+    fillcolor: 'rgba(248,81,73,0.08)',
+    hovertemplate: '%{x} km: %{y:.1f} min eclipse<extra></extra>',
+  };
+
+  // Trace 2: Eclipse days per year (right y-axis)
+  const traceDays = {
+    x: alts,
+    y: sweep.map(d => d.eclipseDays),
+    name: 'Eclipse Days/Year',
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#d29922', width: 2, dash: 'dot' },
+    yaxis: 'y2',
+    hovertemplate: '%{x} km: %{y} days with eclipses<extra></extra>',
+  };
+
+  // Trace 3: Battery storage needed (right y-axis 2? or annotate)
+  const traceBattery = {
+    x: alts,
+    y: sweep.map(d => d.batteryWhPerKw),
+    name: 'Battery (Wh/kW)',
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#58a6ff', width: 2 },
+    yaxis: 'y3',
+    hovertemplate: '%{x} km: %{y:.0f} Wh/kW battery<extra></extra>',
+  };
+
+  // Find eclipse-free altitude (where maxEclipseMin drops to 0)
+  let eclipseFreeAlt = null;
+  for (const d of sweep) {
+    if (d.maxEclipseMin === 0 && d.altitude >= 400) {
+      eclipseFreeAlt = d.altitude;
+      break;
+    }
+  }
+
+  const shapes = [];
+  const annotations = [];
+
+  // Current altitude marker
+  shapes.push({
+    type: 'line', x0: curAlt, x1: curAlt, y0: 0, y1: 1, yref: 'paper',
+    line: { color: '#3fb950', width: 2, dash: 'dash' },
+  });
+  annotations.push({
+    x: curAlt, y: 1, yref: 'paper', text: `Current: ${curAlt} km`,
+    showarrow: false, font: { color: '#3fb950', size: 10 }, yshift: 10,
+  });
+
+  // Eclipse-free altitude marker
+  if (eclipseFreeAlt) {
+    shapes.push({
+      type: 'line', x0: eclipseFreeAlt, x1: eclipseFreeAlt, y0: 0, y1: 1, yref: 'paper',
+      line: { color: '#bc8cff', width: 2, dash: 'dashdot' },
+    });
+    annotations.push({
+      x: eclipseFreeAlt, y: 0.85, yref: 'paper',
+      text: `Eclipse-free: ${eclipseFreeAlt} km`,
+      showarrow: true, arrowhead: 2, arrowcolor: '#bc8cff',
+      font: { color: '#bc8cff', size: 10 },
+      ax: 40, ay: -25,
+    });
+  }
+
+  const layout = {
+    ...plotlyLayout,
+    showlegend: true,
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
+    xaxis: { ...plotlyLayout.xaxis, title: { text: 'Altitude (km)', font: { size: 11 } } },
+    yaxis: {
+      ...plotlyLayout.yaxis,
+      title: { text: 'Max Eclipse Duration (min)', font: { color: '#f85149', size: 11 } },
+      side: 'left',
+      rangemode: 'tozero',
+    },
+    yaxis2: {
+      title: { text: 'Eclipse Days / Year', font: { color: '#d29922', size: 11 } },
+      overlaying: 'y', side: 'right',
+      gridcolor: 'rgba(0,0,0,0)', rangemode: 'tozero',
+      font: { color: '#d29922' },
+    },
+    yaxis3: {
+      title: { text: 'Battery (Wh/kW)', font: { color: '#58a6ff', size: 11 } },
+      overlaying: 'y', side: 'right', position: 0.93,
+      gridcolor: 'rgba(0,0,0,0)', rangemode: 'tozero',
+      showgrid: false,
+    },
+    shapes,
+    annotations,
+    margin: { ...plotlyLayout.margin, r: 90 },
+  };
+
+  Plotly.react('chart-eclipse', [traceEclipse, traceDays, traceBattery], layout, plotlyConfig);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LAUNCH ENERGY CHART
+   ═══════════════════════════════════════════════════════════════ */
+function renderLaunchEnergyChart(results) {
+  const sweep = results.launchEnergySweep;
+  const alts = sweep.map(d => d.altitude);
+  const curAlt = results.params.altitude;
+
+  const traceDV = {
+    x: alts,
+    y: sweep.map(d => d.launchDV / 1000), // km/s
+    name: 'Launch ΔV (km/s)',
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#58a6ff', width: 2.5 },
+    hovertemplate: '%{x} km: %{y:.2f} km/s<extra></extra>',
+  };
+
+  const traceEnergy = {
+    x: alts,
+    y: sweep.map(d => d.totalKWhPerKg),
+    name: 'Energy (kWh/kg)',
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#3fb950', width: 2 },
+    yaxis: 'y2',
+    hovertemplate: '%{x} km: %{y:.2f} kWh/kg<extra></extra>',
+  };
+
+  const traceKinetic = {
+    x: alts,
+    y: sweep.map(d => d.kineticKWhPerKg),
+    name: 'Kinetic (kWh/kg)',
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#39d2c0', width: 1.5, dash: 'dash' },
+    yaxis: 'y2',
+    hovertemplate: '%{x} km: %{y:.2f} kWh/kg kinetic<extra></extra>',
+  };
+
+  const tracePotential = {
+    x: alts,
+    y: sweep.map(d => d.potentialKWhPerKg),
+    name: 'Potential (kWh/kg)',
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: '#bc8cff', width: 1.5, dash: 'dash' },
+    yaxis: 'y2',
+    hovertemplate: '%{x} km: %{y:.2f} kWh/kg potential<extra></extra>',
+  };
+
+  const layout = {
+    ...plotlyLayout,
+    showlegend: true,
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
+    xaxis: { ...plotlyLayout.xaxis, title: { text: 'Altitude (km)', font: { size: 11 } } },
+    yaxis: {
+      ...plotlyLayout.yaxis,
+      title: { text: 'Launch ΔV (km/s)', font: { color: '#58a6ff', size: 11 } },
+      side: 'left',
+    },
+    yaxis2: {
+      title: { text: 'Energy (kWh/kg)', font: { color: '#3fb950', size: 11 } },
+      overlaying: 'y', side: 'right',
+      gridcolor: 'rgba(0,0,0,0)',
+    },
+    shapes: [{
+      type: 'line', x0: curAlt, x1: curAlt, y0: 0, y1: 1, yref: 'paper',
+      line: { color: '#3fb950', width: 2, dash: 'dash' },
+    }],
+    annotations: [{
+      x: curAlt, y: 1, yref: 'paper', text: `Current: ${curAlt} km`,
+      showarrow: false, font: { color: '#3fb950', size: 10 }, yshift: 10,
+    }],
+  };
+
+  Plotly.react('chart-launchEnergy', [traceDV, traceEnergy, traceKinetic, tracePotential], layout, plotlyConfig);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   KPI RENDERING
+   ═══════════════════════════════════════════════════════════════ */
+function updateKPIs(results) {
+  const bd = results.breakdown;
+  const sc = results.scale1GW;
+
+  setKPI('kpi-costPerW', formatDollar(bd.totalCostPerW), '$/W deployed');
+  setKPI('kpi-effectiveCostPerW',
+    formatDollar(bd.totalCostPerW / Math.max(results.lifetime, 0.1)),
+    '$/W·yr amortized');
+  setKPI('kpi-assetLife', results.lifetime.toFixed(1), 'years');
+  setKPI('kpi-massToOrbit', (bd.massPerWatt * 1000).toFixed(1), 'kg/kW to orbit');
+  setKPI('kpi-numLaunches', sc.numLaunches.toLocaleString(), 'Starship flights');
+  setKPI('kpi-programCost', formatLargeUSD(sc.programCost), 'USD total');
+}
+
+function setKPI(id, value, unit) {
+  const card = document.getElementById(id);
+  card.querySelector('.kpi-value').textContent = value;
+  card.querySelector('.kpi-unit').textContent = unit;
+}
+
+function formatDollar(v) {
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+  if (v >= 1) return '$' + v.toFixed(2);
+  if (v >= 0.01) return '$' + v.toFixed(3);
+  return '$' + v.toExponential(2);
+}
+
+function formatLargeUSD(v) {
+  if (v >= 1e12) return '$' + (v / 1e12).toFixed(1) + 'T';
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(0) + 'M';
+  return '$' + v.toLocaleString();
+}
+
+function formatNumber(v) {
+  if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+  if (v >= 1) return v.toFixed(2);
+  if (v >= 0.01) return v.toFixed(3);
+  return v.toExponential(2);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ASSUMPTIONS TABLE
+   ═══════════════════════════════════════════════════════════════ */
+function renderAssumptionsTable() {
+  const tbody = document.getElementById('assumptionsBody');
+  let html = '';
+  for (const [id, p] of Object.entries(PARAMS)) {
+    const cur = currentValues[id];
+    const optVal = p.type === 'pill' ? p.opt : formatParamValue(p.opt, p);
+    const realVal = p.type === 'pill' ? p.real : formatParamValue(p.real, p);
+    const pessVal = p.type === 'pill' ? p.pess : formatParamValue(p.pess, p);
+    const activeVal = p.type === 'pill' ? cur : formatParamValue(cur, p);
+
+    const isOpt = cur == p.opt; // loose equality for string/number
+    const isReal = cur == p.real;
+    const isPess = cur == p.pess;
+
+    html += `<tr>
+      <td>${p.category}</td>
+      <td>${p.name}</td>
+      <td class="val-opt ${isOpt ? 'val-active' : ''}">${optVal}</td>
+      <td class="val-real ${isReal ? 'val-active' : ''}">${realVal}</td>
+      <td class="val-pess ${isPess ? 'val-active' : ''}">${pessVal}</td>
+      <td style="font-family:var(--font-mono);font-weight:600">${activeVal}</td>
+      <td>${p.unit}</td>
+      <td class="source-col">${p.source}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   URL STATE (shareable configurations)
+   ═══════════════════════════════════════════════════════════════ */
+function encodeState() {
+  const state = { s: activeScenario };
+  if (activeScenario === 'custom') {
+    state.v = {};
+    for (const [id, val] of Object.entries(currentValues)) {
+      state.v[id] = val;
+    }
+  }
+  const encoded = btoa(JSON.stringify(state));
+  history.replaceState(null, '', '#' + encoded);
+}
+
+function decodeState() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return false;
+  try {
+    const state = JSON.parse(atob(hash));
+    if (state.s && SCENARIOS.hasOwnProperty(state.s)) {
+      activeScenario = state.s;
+      if (state.s !== 'custom') {
+        initCurrentValues(state.s);
+      } else if (state.v) {
+        for (const [id, val] of Object.entries(state.v)) {
+          if (PARAMS[id]) currentValues[id] = val;
+        }
+      }
+      return true;
+    }
+  } catch (e) { /* ignore malformed */ }
+  return false;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN RECOMPUTE
+   ═══════════════════════════════════════════════════════════════ */
+function recompute() {
+  const results = runModel();
+
+  updateKPIs(results);
+  renderWaterfallChart(results);
+  renderAltitudeChart(results);
+  renderDragChart(results);
+  renderDegradationChart(results);
+  renderDebrisChart(results);
+  renderTornadoChart(results);
+  renderTimelineChart(results);
+  renderThermalChart(results);
+  renderEclipseChart(results);
+  renderLaunchEnergyChart(results);
+  renderAssumptionsTable();
+
+  encodeState();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPLAINER SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+const EXPLAINERS = {
+  // ── KPI Cards ──
+  'kpi-costPerW': {
+    title: 'Cost per Watt (Beginning of Life)',
+    body: `
+<h3>What it means</h3>
+<p>The total cost to deploy one watt of solar generating capacity in orbit, measured at the beginning of the array's operational life (before degradation). This is the single most important metric for space solar economics.</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">Total $/W = Panel Acquisition + Launch Cost + Ground Ops + Station-Keeping NPV + Insurance NPV + Debris Reserve NPV</div>
+<p>Each component is computed per watt of effective BOL power output (solar flux &times; panel efficiency &times; thermal derating &times; sunlight fraction).</p>
+<p><strong>Panel acquisition</strong> is the ground cost of the solar cells per watt. <strong>Launch cost</strong> is the system mass (panels + structure + shielding + frames) multiplied by $/kg to orbit. <strong>Station-keeping NPV</strong> is the net present value of annual propellant costs over the asset lifetime. <strong>Insurance and debris reserve</strong> are actuarial estimates based on expected loss rates.</p>
+
+<h3>What's NOT included</h3>
+<p>Spacecraft bus/avionics, power management &amp; distribution (PMAD), deployment mechanisms, integration &amp; testing, ground segment, and end-of-life disposal. These would add an estimated 50&ndash;150% to the total.</p>
+
+<h3>Earth comparison</h3>
+<p>Utility-scale ground solar in 2024&ndash;2025: <strong>$0.70&ndash;1.00/W</strong> fully installed (panels + inverters + racking + labor + interconnection). Residential rooftop: $2.50&ndash;3.50/W.</p>
+<div class="source-cite">Sources: NREL ATB 2024; Lazard LCOE v16; EIA Electric Power Annual</div>
+    `,
+  },
+  'kpi-effectiveCostPerW': {
+    title: 'Effective $/W (Lifetime Amortized)',
+    body: `
+<h3>What it means</h3>
+<p>The total cost per watt divided by the expected asset lifetime in years. A rough measure of annual capital cost per watt &mdash; useful for comparing assets with different lifetimes.</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">Effective $/W&middot;yr = Total $/W &divide; Asset Lifetime (years)</div>
+<p>This is a simple straight-line amortization. It does not account for declining output over the lifetime (which would make the effective cost higher). A proper LCOE calculation would discount future energy production.</p>
+
+<h3>Earth comparison</h3>
+<p>Utility solar with 25-year life at $0.85/W: <strong>$0.034/W&middot;yr</strong>. Terrestrial solar also benefits from ~25% capacity factor, but in LEO dawn-dusk SSO the capacity factor is ~95&ndash;98% (near-continuous sunlight).</p>
+<div class="source-cite">Sources: NREL ATB 2024; Lazard LCOE v16</div>
+    `,
+  },
+  'kpi-assetLife': {
+    title: 'Expected Asset Life',
+    body: `
+<h3>What it means</h3>
+<p>The number of years the solar array is expected to produce useful power, determined by whichever limit is reached first: the target operational life or the degradation threshold.</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">Lifetime = min(Target Life, Year when efficiency drops below EOL threshold)</div>
+<p>Panel efficiency degrades annually from radiation damage (trapped proton/electron fluence in the Van Allen belts). The model uses exponential decay: <code>P(t) = P0 &times; (1 - deg_rate)^t</code>. The thermal efficiency loss (from operating above 25&deg;C reference) is applied as a constant factor at BOL.</p>
+<p>The EOL threshold is the fraction of BOL power below which the asset is considered non-viable (typically 70&ndash;90%).</p>
+
+<h3>Key drivers</h3>
+<p>At the base case (2%/yr degradation, 80% threshold), the array reaches EOL in ~11 years purely from radiation. At 5%/yr (unshielded Si in LEO), EOL arrives in ~4.3 years. GEO satellites commonly last 15+ years because radiation exposure profiles differ.</p>
+
+<h3>Earth comparison</h3>
+<p>Ground solar panels carry 25&ndash;30 year performance warranties, typically guaranteeing &ge;80% of nameplate power at year 25. Degradation is ~0.3&ndash;0.5%/year &mdash; 4&ndash;10&times; slower than LEO space panels.</p>
+<div class="source-cite">Sources: Messenger et al., JPL; OSTI; Jordan &amp; Kurtz, NREL (2013)</div>
+    `,
+  },
+  'kpi-massToOrbit': {
+    title: 'Mass per Kilowatt to Orbit',
+    body: `
+<h3>What it means</h3>
+<p>Total system mass (panels + structure + shielding + frames) that must be launched to orbit per kilowatt of effective power. This is the inverse of "specific power" (W/kg), a key figure of merit for space power systems.</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">Mass/kW = (panel_mass + structure_overhead + shielding + frame) / (1361 W/m&sup2; &times; efficiency &times; thermal_factor &times; sunlight_fraction) &times; 1000</div>
+<p>The numerator is total areal density (kg/m&sup2;) and the denominator is effective power per m&sup2; (W/m&sup2;).</p>
+
+<h3>Reference points</h3>
+<p>ISS legacy solar arrays: ~70 kg/kW (28.5 W/kg). ISS iROSA arrays: ~21&ndash;30 kg/kW (33&ndash;47 W/kg). Best operational arrays: ~10 kg/kW (~100 W/kg). MicroLink Devices IMM cells: 0.33 kg/kW at cell level (3,000 W/kg) &mdash; but array-level is 5&ndash;10&times; heavier.</p>
+
+<h3>Earth comparison</h3>
+<p>A typical rooftop Si panel: ~5 kg/kW (200 W/kg). Ground-mounted with racking: ~10 kg/kW. Mass is cheap on Earth; in space, every gram costs $0.05&ndash;2.72 to launch.</p>
+<div class="source-cite">Sources: NASA SST-SOA Power Subsystems; MicroLink Devices press release (2018); NREL</div>
+    `,
+  },
+  'kpi-numLaunches': {
+    title: 'Starship Launches for 1 GW',
+    body: `
+<h3>What it means</h3>
+<p>The number of Starship flights required to deliver all the hardware for a 1 GW orbital solar array to its target orbit.</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">Launches = ceil(Total_Mass_1GW / Payload_per_Launch)</div>
+<p>Total mass = (1 GW / W_per_m&sup2;) &times; kg_per_m&sup2;. Payload per launch is the Starship SSO capacity setting. This does not include propellant for station-keeping (delivered separately) or the spacecraft bus mass.</p>
+
+<h3>Key constraint: SSO access</h3>
+<p>Sun-synchronous orbit requires ~97&ndash;98&deg; inclination. As of 2026, <strong>no Starship launch pad exists at any polar-capable site</strong> (Vandenberg, Kodiak, etc.). From Boca Chica (28.5&deg;N), reaching SSO requires a dogleg maneuver that reduces payload by 30&ndash;50%. The payload-to-SSO figures in this model assume a future polar launch site.</p>
+
+<h3>Earth comparison</h3>
+<p>A 1 GW terrestrial solar farm requires zero launches but ~5 km&sup2; of land area and ~2&ndash;3 years of construction.</p>
+<div class="source-cite">Sources: SpaceX Starship Users Guide v1.0; NSF Forum analyses</div>
+    `,
+  },
+  'kpi-programCost': {
+    title: '1 GW Program Cost',
+    body: `
+<h3>What it means</h3>
+<p>The total cost to deploy a 1 GW orbital solar power system, including panel acquisition, launch, structure, station-keeping reserve, insurance, and debris reserve over the full asset lifetime.</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">Program Cost = 1,000,000,000 W &times; Total $/W</div>
+<p>This is a direct scale-up. In reality, costs would be non-linear: volume discounts on panels, dedicated launch contracts, learning-curve effects on operations. But there could also be diseconomies at scale (orbital crowding, debris generation, regulatory costs).</p>
+
+<h3>Earth comparison</h3>
+<p>A 1 GW utility-scale solar farm on Earth costs <strong>$0.7&ndash;1.0 billion</strong> (2024 dollars), produces power ~25% of the time (capacity factor), and lasts 25&ndash;30 years. The orbital version costs more but has ~95% capacity factor (near-continuous sunlight in dawn-dusk SSO).</p>
+<div class="source-cite">Sources: EIA; Lazard LCOE v16; NREL ATB 2024</div>
+    `,
+  },
+
+  // ── Charts ──
+  'chart-waterfall': {
+    title: 'Cost Waterfall — How $/W is Built Up',
+    body: `
+<h3>What it shows</h3>
+<p>Each bar represents one component of the total cost per watt. Reading left to right, they stack up to the total. The rightmost bar is the sum.</p>
+
+<h3>Components</h3>
+<p><strong>Panel Acquisition:</strong> Ground cost of the solar cells themselves ($/W nameplate). For space-grade triple-junction GaAs, this is $100&ndash;500/W. For hypothetical future perovskites, as low as $1/W.</p>
+<p><strong>Panel Launch:</strong> Mass of the bare panels &times; launch cost per kg, divided by watts per panel.</p>
+<p><strong>Structure Launch:</strong> Mass of support structure (booms, frames, shielding) &times; launch cost per kg, divided by watts supported.</p>
+<p><strong>Ground Ops:</strong> Cost of ground operations per launch (range safety, mission control, pad ops), distributed across the watts delivered per flight.</p>
+<p><strong>Station-Keeping NPV:</strong> The net present value of propellant needed annually to counteract atmospheric drag, over the full asset lifetime. Uses the Tsiolkovsky rocket equation with the selected thruster Isp.</p>
+<p><strong>Insurance NPV:</strong> Annual insurance premium (% of deployed asset value) discounted over the lifetime.</p>
+<p><strong>Debris Reserve:</strong> Expected value of capacity lost to orbital debris impacts, priced at replacement cost.</p>
+
+<h3>Key insight</h3>
+<p>In most scenarios, <strong>panel acquisition dominates</strong> because space-grade solar cells are extremely expensive ($50&ndash;200/W). Launch cost is surprisingly small (&lt;5% of total in the base case). Making launch cheaper (even free) barely moves the needle.</p>
+<div class="source-cite">Methodology: NPV uses standard annuity formula with the selected discount rate</div>
+    `,
+  },
+  'chart-altitude': {
+    title: 'Altitude Optimizer — Finding the Sweet Spot',
+    body: `
+<h3>What it shows</h3>
+<p>How each cost component changes as orbital altitude varies from 400 to 1200 km, with all other parameters held constant. The "sweet spot" is where total $/W is minimized.</p>
+
+<h3>The tradeoff</h3>
+<p><strong>Lower altitude:</strong> Atmospheric drag increases exponentially. Station-keeping costs skyrocket. Below ~500 km, drag can become the dominant cost.</p>
+<p><strong>Higher altitude:</strong> More delta-V needed to reach orbit, reducing payload per launch. Debris environment peaks at ~800 km (Fengyun-1C and Iridium-Cosmos debris clouds). Radiation exposure may increase. Deorbit becomes harder (&gt;25 year natural decay).</p>
+<p><strong>The sweet spot</strong> is typically 600&ndash;900 km for the base case, where drag is manageable and debris costs haven't peaked.</p>
+
+<h3>Estimation process</h3>
+<p>The model sweeps altitude in 20 km steps. At each altitude, it recomputes atmospheric density (from the NRLMSISE-00 lookup table), drag force, station-keeping ΔV, propellant mass (Tsiolkovsky), debris flux (ORDEM-parameterized Gaussian peaking at 800 km), and sums all cost components.</p>
+<div class="source-cite">Sources: NRLMSISE-00 (Picone et al. 2002); NASA ORDEM 3.1; SMAD (Wertz)</div>
+    `,
+  },
+  'chart-drag': {
+    title: 'Atmospheric Drag vs Altitude',
+    body: `
+<h3>What it shows</h3>
+<p>Left axis: atmospheric mass density (kg/m&sup3;) on a log scale. Right axis: annual station-keeping delta-V (m/s/yr). Three curves for each show solar minimum, moderate, and maximum conditions.</p>
+
+<h3>Why it matters</h3>
+<p>Drag is the silent killer of LEO solar arrays. Solar panels have extremely high area-to-mass ratios (0.5&ndash;1.7 m&sup2;/kg for the configurations modeled here, vs. 0.004 m&sup2;/kg for the ISS). This makes them <strong>150&ndash;480&times; more susceptible to drag</strong> than the ISS per unit mass.</p>
+
+<h3>The density model</h3>
+<div class="formula">F_drag = &frac12; &rho; v&sup2; C_d A<br>
+&Delta;V/yr = F_drag / mass &times; seconds_per_year</div>
+<p>Density values are from the NRLMSISE-00 empirical model, which fits decades of satellite drag measurements and accelerometer data. Density varies by 10&ndash;100&times; between solar min and max at the same altitude. The 11-year solar cycle means your station-keeping budget must survive the worst case.</p>
+
+<h3>Key numbers</h3>
+<p>At 600 km, moderate solar: density ~5&times;10<sup>-13</sup> kg/m&sup3;, ΔV ~450 m/s/yr for a lightweight array. With Hall thrusters (Isp=3000s), this is manageable. With chemical propulsion (Isp=320s), it becomes ruinous.</p>
+<div class="source-cite">Sources: Picone et al. (2002) JGR; NASA CCMC NRLMSISE-00; SMAD Table 8-4</div>
+    `,
+  },
+  'chart-degradation': {
+    title: 'Panel Degradation Over Time',
+    body: `
+<h3>What it shows</h3>
+<p>Effective panel efficiency (%) vs. years of operation. The blue curve combines radiation degradation and thermal derating. The red dashed line is the end-of-life threshold, and the red dot marks when the array reaches EOL.</p>
+
+<h3>Degradation model</h3>
+<div class="formula">Eff(t) = Eff_BOL &times; thermal_factor &times; (1 - radiation_rate)^t</div>
+<p><strong>Thermal factor:</strong> Panels in sunlight reach an equilibrium temperature determined by Stefan-Boltzmann radiation balance. At temperatures above the 25&deg;C reference, efficiency drops by the temperature coefficient (typically -0.2 to -0.45%/&deg;C).</p>
+<p><strong>Radiation factor:</strong> Exponential decay from trapped proton and electron fluence. Rate depends on altitude (higher = more exposure to inner Van Allen belt), shielding, and cell technology. Triple-junction GaAs: ~2%/yr typical in LEO. Silicon: 3&ndash;5%/yr unshielded.</p>
+
+<h3>What's simplified</h3>
+<p>Real degradation is not smooth &mdash; it depends on solar proton events (SPEs), South Atlantic Anomaly passes, and specific orbit parameters. The model uses an average annual rate, which is standard for preliminary design but will overestimate life for some orbits and underestimate for others.</p>
+<div class="source-cite">Sources: Messenger et al., JPL; OSTI; Spectrolab datasheets; Jordan &amp; Kurtz, NREL</div>
+    `,
+  },
+  'chart-debris': {
+    title: 'Debris Survival Probability',
+    body: `
+<h3>What it shows</h3>
+<p>The expected fraction of array capacity surviving over time, for different modular segment sizes. Smaller segments mean each debris hit destroys less of the total array.</p>
+
+<h3>The model</h3>
+<p>Debris impacts follow a Poisson process. The model tracks four size buckets from NASA ORDEM 3.1 parameterization:</p>
+<p>&bull; <strong>Sub-mm (&lt;1mm):</strong> ~0.01 impacts/m&sup2;/yr at 800 km. Causes surface pitting, minor efficiency loss.<br>
+&bull; <strong>mm-class (1&ndash;10mm):</strong> ~5&times;10<sup>-4</sup>/m&sup2;/yr. Localized panel damage.<br>
+&bull; <strong>cm-class (1&ndash;10cm):</strong> ~2&times;10<sup>-5</sup>/m&sup2;/yr. Destroys one panel segment.<br>
+&bull; <strong>Large (&gt;10cm):</strong> ~3&times;10<sup>-7</sup>/m&sup2;/yr. Catastrophic destruction.</p>
+<p>Debris density peaks at ~800 km (Fengyun-1C ASAT test 2007 and Iridium-Cosmos 2251 collision 2009 deposited massive debris clouds at 790&ndash;865 km).</p>
+
+<h3>Modularity tradeoff</h3>
+<p>Smaller segments (1 m&sup2;) limit damage per hit but add frame mass (more perimeter per unit area). The optimal segment size balances structural mass penalty against expected debris damage cost.</p>
+<div class="source-cite">Sources: NASA ORDEM 3.1; ESA MASTER-8; Liou &amp; Johnson (2006)</div>
+    `,
+  },
+  'chart-tornado': {
+    title: 'Sensitivity Tornado — What Moves $/W Most?',
+    body: `
+<h3>What it shows</h3>
+<p>For each parameter, the green bar shows the change in $/W when that parameter is set to its optimistic value (all others held at base case). The red bar shows the pessimistic swing. Parameters are ranked by total swing (optimistic to pessimistic range).</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">For each parameter P:<br>
+  &Delta;_opt = CostBreakdown({...base, P: P.optimistic}).total - base_cost<br>
+  &Delta;_pess = CostBreakdown({...base, P: P.pessimistic}).total - base_cost</div>
+<p>This is a one-at-a-time (OAT) sensitivity analysis. It doesn't capture interaction effects between parameters (e.g., panel cost and launch cost moving together), but it correctly identifies the first-order drivers.</p>
+
+<h3>Key insight</h3>
+<p>The most important chart for investors. It typically shows <strong>panel cost</strong> as the #1 driver, followed by <strong>launch cost</strong> and <strong>panel efficiency</strong>. Station-keeping, debris, and most other parameters are second-order effects. This means the economics of space solar power hinge almost entirely on manufacturing cost breakthroughs for space-grade solar cells.</p>
+<div class="source-cite">Methodology: Standard one-at-a-time tornado analysis, NPV-based cost model</div>
+    `,
+  },
+  'chart-timeline': {
+    title: '1 GW Deployment Timeline',
+    body: `
+<h3>What it shows</h3>
+<p>Cumulative deployed capacity (GW) vs. months, at various launch cadences (1 to 16 launches per month). Each curve shows how quickly 1 GW can be built up.</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">W_per_launch = Payload_kg / Mass_per_W<br>
+Cumulative_GW(month) = launches_per_month &times; W_per_launch &times; month / 10&sup9;</div>
+
+<h3>Key constraints not modeled</h3>
+<p><strong>Manufacturing bottleneck:</strong> The entire global market for space solar cells is ~$44M/year (2024). Scaling to 1 GW would require thousands of times current production capacity.</p>
+<p><strong>Launch cadence:</strong> SpaceX currently launches Falcon 9 roughly every 3 days. 16 Starship launches/month requires Starship to be fully operational with rapid turnaround — not yet demonstrated.</p>
+<p><strong>Orbital deployment:</strong> Each launch deposits hardware that must be deployed, oriented, and commissioned. The model assumes instantaneous deployment.</p>
+<div class="source-cite">Sources: SpaceX launch manifest; ResearchAndMarkets satellite solar cell market report (2024)</div>
+    `,
+  },
+  'chart-thermal': {
+    title: 'Thermal Balance — Energy Flow',
+    body: `
+<h3>What it shows</h3>
+<p>How the incoming solar flux (1361 W/m&sup2;) is partitioned into electricity, waste heat, and reflection. The equilibrium temperature is shown below.</p>
+
+<h3>The physics</h3>
+<div class="formula">Solar input: S = 1361 W/m&sup2;<br>
+Reflected: S &times; (1 - &alpha;) where &alpha; &asymp; 0.92 (absorptivity)<br>
+Electricity: S &times; &eta; (panel efficiency)<br>
+Waste heat: S &times; (&alpha; - &eta;)<br>
+<br>
+Radiative equilibrium (both sides):<br>
+T = [(&alpha; - &eta;) &times; S / (2 &times; &epsilon; &times; &sigma;)]^&frac14;<br>
+where &epsilon; &asymp; 0.85 (emissivity), &sigma; = 5.67&times;10<sup>-8</sup> W/m&sup2;K&sup4;</div>
+<p>The factor of 2 assumes the panel radiates from both sides (valid for thin-film panels). Rigid panels with substrates radiate primarily from one side, increasing equilibrium temperature by ~15&ndash;25&deg;C.</p>
+
+<h3>Why temperature matters</h3>
+<p>Higher temperature reduces efficiency via the temperature coefficient. GaAs cells lose ~0.2%/&deg;C above 25&deg;C; silicon loses ~0.4%/&deg;C. A panel running at 60&deg;C loses 7&ndash;14% of its output compared to the 25&deg;C reference &mdash; a permanent penalty.</p>
+<div class="source-cite">Sources: Spectrolab datasheets; Incropera &amp; DeWitt (Fundamentals of Heat Transfer)</div>
+    `,
+  },
+
+  'chart-eclipse': {
+    title: 'Eclipse Duration & Battery Storage vs Altitude',
+    body: `
+<h3>What it shows</h3>
+<p>In a dawn-dusk sun-synchronous orbit, the orbital plane is aligned with the solar terminator, providing near-continuous sunlight. However, at lower altitudes, the Earth's angular radius is large enough that seasonal variation in the Sun's declination causes brief eclipses around the solstices.</p>
+
+<h3>The key finding</h3>
+<p><strong>Above ~574 km, a dawn-dusk SSO is completely eclipse-free year-round.</strong> Below that altitude, eclipses grow rapidly &mdash; up to ~21 minutes per orbit at 300 km. This is because the critical condition for eclipse-free operation is:</p>
+<div class="formula">arcsin(R<sub>E</sub> / r) &lt; &beta;<sub>min</sub> = 90&deg; &minus; &epsilon; = 66.56&deg;</div>
+<p>where &epsilon; = 23.44&deg; is Earth's obliquity. Solving: r &gt; R<sub>E</sub> / sin(66.56&deg;) &asymp; 6949 km, i.e., altitude &gt; 578 km.</p>
+
+<h3>Battery implications</h3>
+<p>If deploying below ~574 km, you need battery storage to bridge eclipse periods. The required capacity scales with the maximum eclipse duration:</p>
+<div class="formula">Battery (Wh/kW) = max_eclipse_minutes / 60 &times; 1000</div>
+<p>At 400 km this is ~250&ndash;280 Wh/kW. Li-ion batteries at ~250 Wh/kg means ~1&ndash;1.1 kg/kW of battery mass &mdash; which must also be launched to orbit.</p>
+
+<h3>Why this matters for economics</h3>
+<p>The eclipse-free altitude (~574 km) is right in the drag transition zone. Below it, you need batteries AND pay high station-keeping costs. Above it, you get 24/7 sun with manageable drag. This creates a natural minimum deployment altitude for solar power applications.</p>
+<div class="source-cite">Sources: Orbital mechanics (Vallado, Ch. 5); Earth obliquity (IAU); Dawn-dusk SSO geometry analysis</div>
+    `,
+  },
+  'chart-launchEnergy': {
+    title: 'Launch Energy & &Delta;V vs Altitude',
+    body: `
+<h3>What it shows</h3>
+<p>The minimum energy and &Delta;V required to reach each orbital altitude from Earth's surface. Higher orbits cost more energy to reach but less to maintain (lower drag).</p>
+
+<h3>How it's calculated</h3>
+<div class="formula">&Delta;V<sub>launch</sub> &asymp; v<sub>orbital</sub> &minus; v<sub>rotation</sub>&middot;cos(i) + &Delta;V<sub>gravity</sub> + &Delta;V<sub>drag</sub></div>
+<p>where gravity losses &asymp; 1300 m/s and drag losses &asymp; 200 m/s (typical for a Starship-class vehicle).</p>
+<p>The total specific energy combines kinetic and gravitational potential:</p>
+<div class="formula">E<sub>kinetic</sub> = &frac12; &Delta;V&sup2;<br>
+E<sub>potential</sub> = &mu;/R<sub>E</sub> &minus; &mu;/r<br>
+E<sub>total</sub> = E<sub>kinetic</sub> + E<sub>potential</sub></div>
+
+<h3>Key numbers</h3>
+<p>&bull; 500 km SSO: ~9.7 kWh/kg, &Delta;V &asymp; 9.2 km/s<br>
+&bull; 800 km SSO: ~10.1 kWh/kg, &Delta;V &asymp; 9.3 km/s<br>
+&bull; 1200 km SSO: ~10.7 kWh/kg, &Delta;V &asymp; 9.5 km/s</p>
+<p>The energy increase with altitude is modest (~10% from 500 to 1200 km) because most launch energy goes into reaching orbital velocity, not climbing altitude. This means the penalty for choosing a higher (drag-free) orbit is small compared to the savings in station-keeping.</p>
+<div class="source-cite">Sources: Wertz, SMAD; Sutton &amp; Biblarz (Rocket Propulsion Elements); Starship user guide</div>
+    `,
+  },
+
+  // ── Parameters ──
+  'param-altitude': {
+    title: 'Orbital Altitude',
+    body: `
+<h3>What it controls</h3>
+<p>The circular orbit altitude in km for the sun-synchronous dawn-dusk orbit. This is the single most consequential design choice, affecting drag, radiation, debris exposure, and launch cost simultaneously.</p>
+
+<h3>Why dawn-dusk SSO?</h3>
+<p>A sun-synchronous orbit (SSO) with the ascending node at the dawn terminator keeps the orbital plane nearly perpendicular to the Sun direction year-round. This provides <strong>~95&ndash;98% continuous sunlight</strong> (brief eclipses only around solstices at lower altitudes). No other LEO orbit comes close.</p>
+<p>SSO requires a specific inclination (~97&ndash;98&deg;) that uses Earth's J2 oblateness to precess the orbital plane at exactly 360&deg;/year.</p>
+
+<h3>The tradeoffs</h3>
+<p>&bull; <strong>400&ndash;500 km:</strong> Extreme drag. Station-keeping dominates costs. Short orbital lifetime without propulsion.<br>
+&bull; <strong>600&ndash;700 km:</strong> Moderate drag. Good balance. Reasonable natural decay for deorbit compliance.<br>
+&bull; <strong>800&ndash;900 km:</strong> Minimal drag but peak debris density. Decades/centuries to naturally deorbit (regulatory problem).<br>
+&bull; <strong>1000+ km:</strong> Negligible drag, but higher radiation (inner Van Allen belt proximity), very long orbital lifetime (debris concern), and more ΔV to reach from launch.</p>
+<div class="source-cite">Sources: SMAD (Wertz); FCC 5-year deorbit rule; ESA Space Debris Mitigation Guidelines</div>
+    `,
+  },
+  'param-solarActivity': {
+    title: 'Solar Activity Level',
+    body: `
+<h3>What it controls</h3>
+<p>Which column of the atmospheric density table to use: solar minimum, moderate, or maximum. The Sun follows an ~11-year cycle of activity that dramatically affects Earth's upper atmosphere.</p>
+
+<h3>The effect</h3>
+<p>During solar maximum, increased EUV and X-ray output heats the thermosphere, causing it to expand. Density at 600 km can be <strong>10&ndash;50&times; higher</strong> at solar max vs. solar min. This directly multiplies drag force and station-keeping costs.</p>
+<p>A 20-year orbital asset will experience ~2 full solar cycles. Designing for solar minimum only and getting hit by solar maximum would be catastrophic for propellant budgets.</p>
+
+<h3>Current cycle</h3>
+<p>Solar Cycle 25 began in December 2019 and is expected to peak around 2025&ndash;2026. It has been stronger than initially predicted.</p>
+<div class="source-cite">Sources: NRLMSISE-00 (Picone et al. 2002); NOAA Space Weather Prediction Center; F10.7 solar flux index</div>
+    `,
+  },
+  'param-dawnDuskFraction': {
+    title: 'Sunlight Fraction',
+    body: `
+<h3>What it controls</h3>
+<p>The percentage of each orbit spent in sunlight. For a perfect dawn-dusk SSO, this approaches 100%. In practice, orbital mechanics cause brief eclipses (especially around solstices at lower altitudes).</p>
+
+<h3>How it enters the model</h3>
+<div class="formula">Effective Power = Solar Flux &times; Efficiency &times; Thermal Factor &times; (Sunlight Fraction / 100)</div>
+<p>A 5% eclipse fraction directly reduces average power output by 5% and increases $/W by ~5%.</p>
+
+<h3>Typical values</h3>
+<p>&bull; 600 km dawn-dusk SSO: ~91&ndash;96% sunlight (seasonal variation)<br>
+&bull; 800 km dawn-dusk SSO: ~95&ndash;99%<br>
+&bull; Generic LEO (non-SSO): ~60&ndash;65% (regular eclipses each orbit)<br>
+&bull; GEO: ~99% (eclipses only near equinoxes, max 72 min/day)</p>
+<div class="source-cite">Sources: STK orbital analysis; Wertz, SMAD Chapter 5</div>
+    `,
+  },
+  'param-panelEfficiency': {
+    title: 'Panel Efficiency (Beginning of Life)',
+    body: `
+<h3>What it controls</h3>
+<p>The fraction of incoming solar energy converted to electricity at AM0 (air mass zero, i.e., space conditions) at beginning of life, before radiation or thermal degradation.</p>
+
+<h3>State of the art</h3>
+<p>&bull; <strong>24%:</strong> Thin-film CIGS or advanced silicon. Available today at lower cost.<br>
+&bull; <strong>30%:</strong> Production triple-junction GaAs (Spectrolab XTJ Prime: 30.7%). The industry standard for space.<br>
+&bull; <strong>35%:</strong> Lab-demonstrated 4&ndash;6 junction cells. Not yet in production.<br>
+&bull; <strong>37.75%:</strong> Certified record for triple-junction IMM cell (MicroLink Devices, 2018).<br>
+&bull; <strong>47.1%:</strong> Lab record for 6-junction concentrator cell (NREL, 2020). Requires optical concentration, not applicable to flat panels.</p>
+
+<h3>Impact on $/W</h3>
+<p>Higher efficiency means more watts per m&sup2;, which means less mass to launch per watt. But the highest-efficiency cells are also the most expensive, so there's an optimum that depends on launch cost.</p>
+<div class="source-cite">Sources: NREL Best Research-Cell Efficiency Chart; Spectrolab datasheets; MicroLink press release (2018)</div>
+    `,
+  },
+  'param-panelMassPerM2': {
+    title: 'Panel Areal Mass Density',
+    body: `
+<h3>What it controls</h3>
+<p>Mass of the bare solar cells and their immediate substrate per square meter, excluding support structure, shielding, and frames.</p>
+
+<h3>Reference points</h3>
+<p>&bull; <strong>0.17 kg/m&sup2;:</strong> Alta Devices thin-film GaAs (company bankrupt Dec 2019; product no longer available).<br>
+&bull; <strong>0.3&ndash;0.5 kg/m&sup2;:</strong> MicroLink Devices IMM cells on polyimide (emerging, limited availability).<br>
+&bull; <strong>0.86 kg/m&sup2;:</strong> Typical triple-junction GaAs on Ge substrate. Industry standard.<br>
+&bull; <strong>2.0&ndash;2.5 kg/m&sup2;:</strong> Rigid panel with cover glass and substrate. Heritage technology.</p>
+
+<h3>Why it matters</h3>
+<p>Panel mass directly determines launch cost per watt. Halving panel mass roughly halves the launch cost component. But ultra-lightweight panels are harder to deploy, more fragile, and less radiation-resistant (thinner cover glass = less shielding).</p>
+<div class="source-cite">Sources: Alta Devices (archived); NASA SST-SOA; MicroLink Devices; Spectrolab</div>
+    `,
+  },
+  'param-structureOverhead': {
+    title: 'Structure Overhead',
+    body: `
+<h3>What it controls</h3>
+<p>Additional mass for support structure (booms, hinges, deployment mechanisms, wiring harness) as a percentage of the bare panel mass.</p>
+
+<h3>Reference points</h3>
+<p>&bull; <strong>10%:</strong> Tensioned membrane / solar sail-type deployment. Extremely lightweight but unproven at scale for power arrays.<br>
+&bull; <strong>20&ndash;30%:</strong> ROSA/iROSA-type roll-out arrays with lightweight composite booms. Current state of the art.<br>
+&bull; <strong>50&ndash;60%:</strong> Rigid panel arrays with Al/CFRP frameworks. Heritage approach (ISS-era).</p>
+
+<h3>Note</h3>
+<p>This is applied only to the panel mass. Total structure mass = panelMass &times; (overhead/100). Frame mass from segment boundaries is computed separately.</p>
+<div class="source-cite">Sources: ATK UltraFlex; Redwire ROSA; NASA iROSA factsheet</div>
+    `,
+  },
+  'param-radiationDegPerYear': {
+    title: 'Radiation Degradation Rate',
+    body: `
+<h3>What it controls</h3>
+<p>Annual power loss rate from radiation damage (trapped protons, electrons, and solar particle events). Applied as compound decay.</p>
+
+<h3>The physics</h3>
+<p>LEO passes through the edges of the inner Van Allen radiation belt. Trapped protons (10&ndash;100 MeV) and electrons create displacement damage in semiconductor crystal lattices, reducing minority carrier diffusion length and thus cell voltage and current.</p>
+
+<h3>Typical rates (LEO, 600&ndash;800 km)</h3>
+<p>&bull; <strong>0.5%/yr:</strong> Radiation-hardened cells with thick cover glass (>500 &micro;m). Optimistic for next-gen perovskites (self-healing property).<br>
+&bull; <strong>1.5&ndash;2%/yr:</strong> Standard triple-junction GaAs with 100&ndash;150 &micro;m cover glass. Well-characterized.<br>
+&bull; <strong>3&ndash;5%/yr:</strong> Silicon cells or thin-film without adequate shielding. Rapid degradation.</p>
+
+<h3>Altitude dependence</h3>
+<p>Higher orbits see more radiation. Above ~1000 km, inner belt proton fluence increases dramatically. The model uses a single rate; in reality, the rate is altitude-dependent.</p>
+<div class="source-cite">Sources: Messenger et al., JPL Handbook of GaAs Solar Cells; SPENVIS; OSTI</div>
+    `,
+  },
+  'param-tempCoefficient': {
+    title: 'Temperature Coefficient',
+    body: `
+<h3>What it controls</h3>
+<p>The percentage change in efficiency per degree Celsius above (or below) the 25&deg;C standard test reference temperature. Always negative for photovoltaics &mdash; hotter panels produce less power.</p>
+
+<h3>Typical values</h3>
+<p>&bull; <strong>-0.20%/&deg;C:</strong> GaAs cells (wider bandgap = less thermal sensitivity)<br>
+&bull; <strong>-0.30%/&deg;C:</strong> Average for space-grade multi-junction<br>
+&bull; <strong>-0.40 to -0.45%/&deg;C:</strong> Crystalline silicon</p>
+
+<h3>Impact in orbit</h3>
+<p>At the base case equilibrium temperature (~33&deg;C), the thermal penalty is only ~2.4% for GaAs (-0.30%/&deg;C &times; 8&deg;C). This is much less severe than on Earth (where rooftop panels can reach 65&ndash;75&deg;C). Space panels benefit from radiative cooling to the cold sky.</p>
+<div class="source-cite">Sources: Spectrolab XTJ Prime datasheet; Panasonic HIT datasheet; IEC 61215</div>
+    `,
+  },
+  'param-panelCostPerW': {
+    title: 'Panel Cost (Ground Procurement)',
+    body: `
+<h3>What it controls</h3>
+<p>The cost to purchase the solar cells/panels on the ground, per watt of rated power, before launch. This is typically the <strong>single largest cost component</strong>.</p>
+
+<h3>Current market reality</h3>
+<p>&bull; <strong>$100&ndash;500/W:</strong> Space-qualified triple-junction GaAs (Spectrolab, SolAero/Rocket Lab). ITAR-controlled, tiny production volume. The global space solar cell market is only ~$44M/year.<br>
+&bull; <strong>~$29/W:</strong> Source Energy Company (emerging competitor, limited track record).<br>
+&bull; <strong>~$1/W:</strong> Regher Solar silicon heterojunction (ground-tested, not yet space-qualified).<br>
+&bull; <strong>$0.25&ndash;0.35/W:</strong> Terrestrial utility-scale silicon modules. Not radiation-hardened, would degrade rapidly in LEO.</p>
+
+<h3>The manufacturing bottleneck</h3>
+<p>Space solar cell costs are high primarily because of tiny production volumes and extreme qualification requirements. If demand increased 100&times;, costs could fall dramatically (learning curve). But no customer has ever ordered space solar cells at that scale.</p>
+<div class="source-cite">Sources: NASA SST-SOA; satsearch market survey; ResearchAndMarkets (2024); NREL ATB</div>
+    `,
+  },
+  'param-launchCostPerKg': {
+    title: 'Launch Cost per Kilogram to SSO',
+    body: `
+<h3>What it controls</h3>
+<p>The all-in cost to deliver one kilogram of payload to the target sun-synchronous orbit.</p>
+
+<h3>Current and projected costs</h3>
+<p>&bull; <strong>$2,720/kg:</strong> Falcon 9 commercial pricing to SSO (~$67M for ~22t to LEO, with SSO penalty).<br>
+&bull; <strong>$500&ndash;2,000/kg:</strong> Starship early operations (2026&ndash;2030 estimate, analyst consensus).<br>
+&bull; <strong>$200/kg:</strong> Starship at high flight rate (100+ flights/year), full reuse, 2030s.<br>
+&bull; <strong>$50/kg:</strong> Starship aspirational target requiring &gt;1000 flights/year, airplane-like turnaround.<br>
+&bull; <strong>$10&ndash;20/kg:</strong> Theoretical fuel-only floor (~$1.5M fuel / 100t payload).</p>
+
+<h3>Critical caveat</h3>
+<p>As of early 2026, <strong>no Starship launch infrastructure exists at any polar-capable site</strong>. Reaching SSO from Boca Chica requires a dogleg maneuver costing 30&ndash;50% of payload. The model's SSO figures assume a future Vandenberg or equivalent pad.</p>
+<div class="source-cite">Sources: SpaceX; NextBigFuture analysis (2025); NSF Forum; Benzinga (Musk quotes)</div>
+    `,
+  },
+  'param-starshipPayloadSSO': {
+    title: 'Starship Payload to SSO',
+    body: `
+<h3>What it controls</h3>
+<p>Maximum mass Starship can deliver to the target SSO in a single flight (tonnes).</p>
+
+<h3>Official data</h3>
+<p>SpaceX Starship Users Guide v1.0 (March 2020) quotes <strong>100+ tonnes to 500 km at up to 98.9&deg; inclination</strong> (fully reusable). Updated claims (Sep 2024): ~180t to LEO fully reusable.</p>
+
+<h3>SSO-specific considerations</h3>
+<p>Higher altitude SSO requires more ΔV, reducing payload. Estimates for 600&ndash;800 km SSO: 50&ndash;100t depending on launch site and altitude.</p>
+<div class="source-cite">Sources: SpaceX Starship Users Guide v1.0; Musk statements (Sept 2024)</div>
+    `,
+  },
+  'param-groundOpsCostPerLaunch': {
+    title: 'Ground Operations Cost per Launch',
+    body: `
+<h3>What it controls</h3>
+<p>Non-fuel, non-vehicle costs for each launch: range safety, mission control, pad operations, payload integration, and regulatory compliance.</p>
+
+<h3>How it enters the model</h3>
+<div class="formula">Ground Ops $/W = (Cost_per_launch) / (Watts_delivered_per_launch)</div>
+<p>For Starship with 80t to SSO and ~180 W/kg specific power: ~14.4 MW per launch. At $3M ground ops: ~$0.21/W.</p>
+<div class="source-cite">Sources: SpaceX operational estimates; NASA Launch Services Program</div>
+    `,
+  },
+  'param-propulsionType': {
+    title: 'Propulsion Type (Station-Keeping)',
+    body: `
+<h3>What it controls</h3>
+<p>The type of thruster used for orbit maintenance (counteracting drag). This determines the specific impulse (Isp), which controls how much propellant is needed for a given ΔV.</p>
+
+<h3>Options</h3>
+<p><strong>Hall Effect Thruster (Isp ~3000s):</strong> Electric propulsion. Very fuel-efficient (10&times; less propellant than chemical) but low thrust. Requires onboard electrical power. Standard for modern GEO satellites and increasingly for LEO constellations (Starlink uses krypton Hall thrusters).</p>
+<p><strong>Chemical (Isp ~320s):</strong> Hydrazine or bipropellant. High thrust but low efficiency. Simple and reliable. Dominant for legacy systems but ruinous for high-drag applications.</p>
+
+<h3>Impact</h3>
+<p>At 600 km with moderate solar activity, ΔV ~450 m/s/yr. With Hall thrusters: propellant mass ~1.5% of spacecraft mass per year. With chemical: propellant mass ~15% per year. Over 10 years, chemical requires more propellant than the spacecraft weighs.</p>
+<div class="source-cite">Sources: Busek; Aerojet Rocketdyne Hall thruster specs; Sutton (Rocket Propulsion Elements)</div>
+    `,
+  },
+  'param-dragCoefficient': {
+    title: 'Drag Coefficient (Cd)',
+    body: `
+<h3>What it controls</h3>
+<p>The aerodynamic drag coefficient for the spacecraft in free-molecular flow (mean free path >> object size, which is always true in LEO).</p>
+
+<h3>Typical values</h3>
+<p>&bull; <strong>2.0:</strong> Flat plate perpendicular to flow (theoretical minimum for diffuse reflection)<br>
+&bull; <strong>2.2:</strong> Standard assumption for most LEO spacecraft (SMAD, Vallado)<br>
+&bull; <strong>2.5:</strong> Concave or complex geometries that trap molecules</p>
+<p>For a flat solar panel array, Cd &asymp; 2.0&ndash;2.2 is well-established. The value depends on surface accommodation coefficient (how gas molecules interact with the surface).</p>
+<div class="source-cite">Sources: SMAD Table 8-4; Vallado (Fundamentals of Astrodynamics); Sentman (1961)</div>
+    `,
+  },
+  'param-panelReflectivity': {
+    title: 'Panel Reflectivity',
+    body: `
+<h3>What it controls</h3>
+<p>The fraction of incident sunlight reflected by the panel surface. Affects solar radiation pressure (SRP) force and the thermal balance.</p>
+<p>Solar cells are designed to absorb light, so reflectivity is low (5&ndash;15% for bare cells). Anti-reflection coatings can reduce it further. Cover glass increases reflectivity (up to 30% with certain coatings).</p>
+<div class="source-cite">Sources: Spectrolab cell datasheets; Incropera &amp; DeWitt</div>
+    `,
+  },
+  'param-debrisFluxMultiplier': {
+    title: 'Debris Flux Growth Multiplier',
+    body: `
+<h3>What it controls</h3>
+<p>A scaling factor on the baseline debris flux rates. Set to 1.0 for current (2024) conditions. Increase to model future debris growth from mega-constellation deployment, collisions, or Kessler syndrome progression.</p>
+
+<h3>Context</h3>
+<p>The tracked LEO object population has grown from ~8,000 in 2000 to ~28,000+ in 2024. Mega-constellations (Starlink: 6,000+, planned 42,000; Kuiper: planned 3,200+) are dramatically increasing object counts. Each collision can create thousands of fragments.</p>
+<p>The 800&ndash;1000 km band already has the highest debris spatial density in LEO, primarily from the 2007 Chinese ASAT test (Fengyun-1C at 865 km) and 2009 Iridium-Cosmos collision (790 km).</p>
+<div class="source-cite">Sources: NASA ORDEM 3.1; ESA Space Debris Office; Kessler &amp; Cour-Palais (1978); Liou (2011)</div>
+    `,
+  },
+  'param-segmentSize': {
+    title: 'Panel Segment Size',
+    body: `
+<h3>What it controls</h3>
+<p>The area of each independent panel module (m&sup2;). When a cm-class debris impact occurs, it destroys one segment. Smaller segments = less capacity lost per hit, but more frame mass.</p>
+
+<h3>The tradeoff</h3>
+<div class="formula">Frame mass per m&sup2; = 4 &times; frame_mass_per_meter / sqrt(segment_area)</div>
+<p>1 m&sup2; segments: 4.0 m of frame per m&sup2;. 16 m&sup2; segments: 1.0 m of frame per m&sup2;. Smaller segments add 4&times; more frame mass but limit each cm-class hit to 1/16 the damage.</p>
+<div class="source-cite">Design variable; parametric analysis recommended</div>
+    `,
+  },
+  'param-shieldingMassPerM2': {
+    title: 'Whipple Shielding Mass',
+    body: `
+<h3>What it controls</h3>
+<p>Additional mass per m&sup2; for micrometeoroid/debris shielding. A Whipple shield uses a thin bumper plate spaced from the main structure &mdash; hypervelocity impacts on the bumper shatter the projectile, spreading the energy over a larger area.</p>
+
+<h3>Effectiveness</h3>
+<p>Effective against sub-mm and mm-class debris. Cannot stop cm-class or larger objects. The model applies exponential shielding factors: sub-mm damage reduced by exp(-2&times;mass), mm-class by exp(-1&times;mass).</p>
+<p>Adding 0.5 kg/m&sup2; of shielding reduces sub-mm damage by 63% and mm-class by 39%. But it adds significant mass (0.5 kg/m&sup2; on a 0.86 kg/m&sup2; panel is a 58% mass increase).</p>
+<div class="source-cite">Sources: Whipple (1947); NASA Handbook for Designing MMOD Protection; Christiansen (2009)</div>
+    `,
+  },
+  'param-frameMassPerMeter': {
+    title: 'Frame Mass per Linear Meter',
+    body: `
+<h3>What it controls</h3>
+<p>Mass of structural frame material per linear meter of segment boundary. Multiplied by perimeter per m&sup2; to get frame contribution to total areal mass.</p>
+<p>&bull; <strong>0.1 kg/m:</strong> Ultra-lightweight CFRP tape booms<br>
+&bull; <strong>0.3 kg/m:</strong> Standard CFRP tubular booms<br>
+&bull; <strong>0.8 kg/m:</strong> Aluminum truss members</p>
+<div class="source-cite">Sources: ATK/Northrop Grumman SRTM boom data; DSS (Deployable Space Systems)</div>
+    `,
+  },
+  'param-discountRate': {
+    title: 'Discount Rate',
+    body: `
+<h3>What it controls</h3>
+<p>The annual rate used to discount future costs (station-keeping, insurance, debris losses) to their net present value at deployment time.</p>
+
+<h3>How it's used</h3>
+<div class="formula">NPV = Annual_Cost &times; (1 - (1+r)<sup>-n</sup>) / r</div>
+<p>Higher discount rates reduce the present value of future costs, making the total $/W appear lower. This reflects the time value of money and project risk.</p>
+
+<h3>Typical values</h3>
+<p>&bull; <strong>3&ndash;5%:</strong> Government/national-interest projects (NASA, DoD)<br>
+&bull; <strong>8&ndash;12%:</strong> Commercial satellite ventures (SES, Intelsat)<br>
+&bull; <strong>15&ndash;25%:</strong> High-risk space startups, venture capital expectations</p>
+<div class="source-cite">Sources: NASA CEH; Damodaran (corporate finance); VC industry benchmarks</div>
+    `,
+  },
+  'param-operationalLifeTarget': {
+    title: 'Target Operational Life',
+    body: `
+<h3>What it controls</h3>
+<p>The planned operational duration. The actual asset life is the minimum of this target and the degradation-limited life (when efficiency drops below the EOL threshold).</p>
+<p>&bull; <strong>GEO commsats:</strong> 15&ndash;20 years typical<br>
+&bull; <strong>LEO constellations:</strong> 5&ndash;7 years (Starlink planned ~5 years)<br>
+&bull; <strong>ISS solar arrays:</strong> 15+ years (with upgrades)</p>
+<div class="source-cite">Sources: FCC licensing terms; satellite operator filings; NASA ISS program</div>
+    `,
+  },
+  'param-degradationThreshold': {
+    title: 'End-of-Life Power Threshold',
+    body: `
+<h3>What it controls</h3>
+<p>The fraction of beginning-of-life power below which the asset is considered non-viable and retired. Standard practice is to design for a guaranteed power level at end of life.</p>
+<p>&bull; <strong>70%:</strong> Aggressive &mdash; accept 30% power loss (more lifetime from same hardware)<br>
+&bull; <strong>80%:</strong> Industry standard for most space missions<br>
+&bull; <strong>90%:</strong> Conservative &mdash; retire early to maintain high performance</p>
+<div class="source-cite">Sources: ECSS-E-ST-20C (Space Engineering: Electrical and Electronic); ESA/NASA mission design standards</div>
+    `,
+  },
+  'param-insuranceRate': {
+    title: 'Annual Insurance Rate',
+    body: `
+<h3>What it controls</h3>
+<p>Annual insurance premium as a percentage of the deployed asset value. Covers launch failure, on-orbit anomalies, and debris damage.</p>
+<p>&bull; <strong>1%:</strong> Very low risk (government self-insurance or large fleet averaging)<br>
+&bull; <strong>3&ndash;5%:</strong> Typical commercial satellite insurance (GEO)<br>
+&bull; <strong>5&ndash;8%:</strong> High-risk LEO operations, novel technology, unproven vehicle</p>
+<p>Note: Space insurance underwriters would likely charge very high rates for a novel large-scale solar array with no flight heritage. The first-of-kind premium could be 10&ndash;15%.</p>
+<div class="source-cite">Sources: Swiss Re space insurance reports; Seradata SpaceTrak; Willis Towers Watson aerospace</div>
+    `,
+  },
+};
+
+function openExplainer(key) {
+  const data = EXPLAINERS[key];
+  if (!data) return;
+  document.getElementById('explainerTitle').textContent = data.title;
+  document.getElementById('explainerBody').innerHTML = data.body;
+  document.getElementById('explainerOverlay').classList.add('open');
+}
+
+function closeExplainer() {
+  document.getElementById('explainerOverlay').classList.remove('open');
+}
+
+// Global click handler for [data-explain] elements
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('[data-explain]');
+  if (el) {
+    e.preventDefault();
+    e.stopPropagation();
+    openExplainer(el.dataset.explain);
+  }
+});
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeExplainer();
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
+   INITIALIZATION
+   ═══════════════════════════════════════════════════════════════ */
+(function init() {
+  // Initialize defaults
+  initCurrentValues('base');
+
+  // Try to restore from URL
+  if (decodeState()) {
+    document.querySelectorAll('.scenario-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.scenario === activeScenario);
+    });
+  }
+
+  renderSidebar();
+  recompute();
+})();
+
+</script>
+</body>
+</html>
