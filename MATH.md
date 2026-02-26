@@ -1,6 +1,11 @@
 # Space Solar Power — Equations, Constants & Data
 
-All equations and constants used across the visualization (`index.html`) and economics dashboard (`dashboard.html`). Every assumption is documented with its source or derivation.
+All equations and constants used across the project files:
+- `Altitude vs Sun.html` — 3D orbital visualization
+- `altitude-selection.html` — altitude selection dashboard (sunshine, debris, drag)
+- `dashboard.html` — economics dashboard ($/W)
+
+Every assumption is documented with its source or derivation.
 
 ---
 
@@ -73,13 +78,36 @@ where:
   v = orbital velocity [m/s]
   C_d ≈ 2.2 (flat plate, typical for solar arrays)
   A = cross-sectional area [m²]
+
+ΔV/year = (F_drag / m) × seconds_per_year
+        = ½ρv²C_d × (A/m) × 31,557,600
 ```
 
-Atmospheric density varies 10–100× between solar minimum and solar maximum at 600 km due to solar cycle heating of the thermosphere.
+### 2.6 Atmospheric Density (NRLMSISE-00)
 
-**ΔV budget for station-keeping:**
-- 600 km: ~10–50 m/s/year (manageable with Hall thrusters)
-- Below 500 km: drag becomes prohibitive for large arrays
+| Altitude (km) | Solar Min (kg/m³) | Solar Max (kg/m³) | Ratio |
+|----------------|-------------------|-------------------|-------|
+| 200 | 2.5×10⁻¹⁰ | 4.0×10⁻¹⁰ | 1.6× |
+| 300 | 2.0×10⁻¹¹ | 6.0×10⁻¹¹ | 3× |
+| 400 | 2.0×10⁻¹² | 1.0×10⁻¹¹ | 5× |
+| 500 | 2.5×10⁻¹³ | 2.5×10⁻¹² | 10× |
+| 600 | 4.0×10⁻¹⁴ | 7.0×10⁻¹³ | 18× |
+| 700 | 6.0×10⁻¹⁵ | 1.8×10⁻¹³ | 30× |
+| 800 | 1.0×10⁻¹⁵ | 5.0×10⁻¹⁴ | 50× |
+| 1000 | 5.0×10⁻¹⁷ | 5.0×10⁻¹⁵ | 100× |
+
+Source: NRLMSISE-00 model. Solar min ≈ F10.7 = 70, solar max ≈ F10.7 = 140.
+
+Key: density varies **10–100× between solar min and max** at 500–1000 km due to thermospheric heating. This is the dominant source of station-keeping uncertainty.
+
+**ΔV budget for station-keeping** (10,000 m² array at 1 kg/m²):
+- 400 km: ~1,000–10,000 m/s/year (impossible)
+- 500 km: ~50–500 m/s/year (marginal at solar min only)
+- 600 km: ~5–100 m/s/year (manageable with Hall thrusters)
+- 700 km: ~0.5–25 m/s/year (easy)
+- 800+: < 1 m/s/year (negligible)
+
+Hall thruster practical limit: ~300 m/s/year with reasonable propellant budget.
 
 ---
 
@@ -301,26 +329,102 @@ where kg/W depends on panel form factor and efficiency
 
 ## 8. Debris & Micrometeoroid Risk
 
-### 8.1 Flux by Size Class (LEO)
+### 8.1 NASA90 Analytical Debris Model (SPENVIS)
 
-| Size Class | Flux (impacts/m²/year) | Damage Mode |
-|------------|----------------------|-------------|
-| Sub-mm dust | ~10⁻¹ to 10⁰ | Surface pitting, gradual efficiency loss |
-| mm-scale | ~10⁻³ to 10⁻² | Panel penetration, localized damage |
-| cm-scale | ~10⁻⁵ to 10⁻⁴ | Structural failure of segment |
-| 10 cm+ | ~10⁻⁷ to 10⁻⁶ | Catastrophic, debris generation |
+Cumulative flux (impacts/m²/year for objects ≥ d_cm):
 
-Source: NASA ORDEM (Orbital Debris Engineering Model), ESA MASTER
+```
+F(d, h, i, t, S) = Φ(h,S) × Ψ(i) × [F₁(d)·g₁(t) + F₂(d)·g₂(t)]
+```
 
-### 8.2 Debris Density by Altitude
+**Size distribution:**
+```
+F₁(d) = 1.22×10⁻⁵ × d^(−2.5)
+F₂(d) = 8.1×10¹⁰ × (d + 700)^(−6)
+```
 
-Peak debris density: **800–900 km** (worst zone — legacy debris from Cosmos-Iridium collision, Chinese ASAT test).
+**Altitude factor:**
+```
+Φ₁(h, S) = 10^(h/200 − S/140 − 1.5)
+Φ(h, S) = Φ₁ / (1 + Φ₁)
 
-600–700 km: significantly lower debris flux than 800–900 km band.
+where S = F10.7 solar flux (~70 solar min, ~110 avg, ~140 solar max)
+```
 
-### 8.3 Kessler Syndrome Risk
+**Inclination factor Ψ(i):**
 
-Current LEO debris growth rate is accelerating. Over a 10-year horizon, debris flux at all altitudes is expected to increase, particularly at 700–1,000 km.
+| Inclination (°) | 0–28.5 | 50 | 60 | 70 | 80 | 90 | 100 |
+|------------------|--------|-----|-----|-----|-----|-----|------|
+| Ψ(i) | 0.91 | 1.0 | 1.07 | 1.2 | 1.4 | 1.6 | 1.78 |
+
+**Time growth (debris accumulation):**
+```
+g₁(t) = (1 + q)^(t − 1988)    q = 0.02 (pre-2011), 0.04 (post-2011)
+g₂(t) = 1 + p × (t − 1988)    p = 0.05
+```
+
+Source: [SPENVIS](https://www.spenvis.oma.be/help/background/metdeb/metdeb.html)
+
+**Caveats:** NASA90 pre-dates Fengyun-1C ASAT (2007, +25% tracked population at ~850 km), Iridium-Cosmos collision (2009, +2300 fragments at ~780 km), and Cosmos 1408 ASAT (2021, fragments at ~500 km). Empirical calibration required.
+
+### 8.2 Empirical Altitude Profile
+
+Relative spatial density (normalized to peak at 800 km = 1.0):
+
+| Altitude (km) | Relative Density | Source/Anchor |
+|----------------|-----------------|---------------|
+| 200 | 0.01 | Rapid atmospheric clearing |
+| 300 | 0.02 | NRC: 50× less than 1000 km |
+| 400 | 0.05 | ISS altitude, validated |
+| 500 | 0.10 | Atmospheric drag still significant |
+| 600 | 0.25 | Hubble altitude |
+| 700 | 0.60 | Sharply rising |
+| 800 | **1.00** | Peak zone (reference) |
+| 850 | **1.05** | Highest point |
+| 900 | 0.95 | Near peak |
+| 1000 | 0.80 | Still very high |
+| 1100 | 0.50 | Declining |
+| 1200 | 0.30 | Moderate |
+| 1400 | 0.40 | Secondary peak (nav sats) |
+| 1500 | 0.35 | Declining from secondary |
+| 1800 | 0.10 | Low |
+| 2000 | 0.05 | Edge of LEO |
+
+Sources: NASA ORDEM 3.2, ESA MASTER-8, NRC 1995 (50× ratio), HAX radar (10× ratio)
+
+### 8.3 ESA Population Counts (Aug 2024)
+
+| Size Class | Count | Damage Mode |
+|------------|-------|-------------|
+| > 10 cm | 54,000 | Catastrophic destruction |
+| 1–10 cm | 1,200,000 | Structural failure |
+| 1 mm–1 cm | 140,000,000 | Panel penetration, localized |
+| Sub-mm | Billions | Surface pitting, gradual efficiency loss |
+
+Source: ESA MASTER-8, ESA Space Environment Report 2025
+
+### 8.4 Shielding & Mitigation
+
+- **Whipple shields** effective up to ~1 cm at LEO collision velocities (~10 km/s)
+- Objects ≥ 10 cm are tracked and can be avoided via maneuver
+- The **1–10 cm gap** is the most dangerous: too small to track, too large to shield
+- Modular panel design limits damage propagation from individual impacts
+
+### 8.5 Orbital Lifetime (Natural Deorbit)
+
+| Altitude (km) | Approx. Lifetime | Regulatory Status |
+|----------------|-----------------|-------------------|
+| 200 | Days | N/A |
+| 300 | Months | Easy compliance |
+| 400 | ~1 year | Easy |
+| 500 | ~5 years | Compliant |
+| 600 | ~25 years | 25-year rule OK |
+| 700 | ~100 years | Marginal |
+| 800 | ~500 years | Non-compliant |
+| 1000 | ~2,000 years | Problem |
+| 1200 | ~5,000 years | Active deorbit required |
+
+Source: NASA Orbital Debris Program Office
 
 ---
 
@@ -413,5 +517,121 @@ Launch cost alone = 2,450,000 kg × $200/kg = $490 million
 
 ---
 
-*Last updated: 2026-02-20*
-*Sources: NASA ORDEM, SORCE/TIM, Kopp & Lean 2011, Kasten & Young 1989, Meinel & Meinel, CODATA 2018, WGS-84, EGM96*
+## 14. Launch Cost Learning Curve (Wright's Law)
+
+Source: Agüera y Arcas et al., arXiv:2511.19468, Nov 2025.
+
+### 14.1 Wright's Law Model
+
+```
+C(Q) = C₁ × Q^(log₂(1 − r))
+
+where:
+  C(Q) = cost per kg at cumulative quantity Q (tonnes)
+  C₁ = cost at first unit
+  r = learning rate (fraction cost drops per doubling)
+  log₂(1 − r) = experience exponent
+```
+
+### 14.2 SpaceX Historical Data
+
+| Vehicle | $/kg to LEO | Cumulative Mass |
+|---------|-------------|-----------------|
+| Falcon 1 | ~$30,000 | ~few tonnes |
+| Falcon 9 v1 | ~$5,000 | ~100 tonnes |
+| Falcon Heavy | ~$1,800 | ~400 tonnes |
+
+Learning rate: ~20% (price falls ~20% for every doubling of cumulative mass launched).
+Range: 18–24% depending on assumptions.
+
+### 14.3 Projections to $200/kg
+
+- Requires ~370,000 tonnes additional cumulative mass
+- At 200 tonnes/launch (Starship): ~1,800 launches
+- At ~180 launches/year: achievable by mid-2030s
+- If only 104,000 tonnes (72% reduction): $300/kg by mid-2030s
+
+### 14.4 Starship Cost Breakdown
+
+| Reuse Level | $/kg (cost) | $/kg (with 75% margin) |
+|-------------|-------------|------------------------|
+| No reuse | ~$460 | — |
+| 10× reuse | <$60 | <$250 |
+| 100× reuse | <$15 | ~$38 |
+| Fuel floor | $8 | — |
+
+---
+
+## 15. Radiation Environment for Compute Hardware
+
+Source: Google Trillium TPU radiation testing, UC Davis Crocker Nuclear Lab, 67 MeV protons.
+
+### 15.1 Orbital Dose Rate
+
+```
+At 650 km SSO with 10 mm Al equivalent shielding:
+  Annual dose: ~150 rad(Si)/year
+  5-year total: ~750 rad(Si)
+```
+
+Primarily penetrating protons + galactic cosmic rays. Proton range at 67 MeV: ~18 mm Al, 6.5 mm Cu.
+
+### 15.2 TPU Error Rates (Trillium)
+
+| Component | Event Type | Rate | Cross-section |
+|-----------|-----------|------|---------------|
+| HBM memory | Uncorrectable ECC (UECC) | 1 per 50 rad | 2×10⁻⁹ cm²/chip |
+| HBM memory | Silent data corruption | 1 per 10⁷ rad | 8.3×10⁻¹⁰ cm²/assembly |
+| Core logic/SRAM | SEE failure | 1 per 150 rad | 7×10⁻¹⁰ cm²/chip |
+| CPU | Crash (SEFI) | 1 per 450 rad | — |
+| RAM | SEFI | 1 per 400 rad | — |
+| System-level | SEFI | 1 per 5 krad | 2×10⁻¹¹ cm²/chip |
+
+### 15.3 Survival Limits
+
+- **Permanent failure**: None observed up to 15 krad (20× the 5-year requirement)
+- **HBM stress anomalies**: Begin at 2 krad (2.7× the 5-year minimum)
+- **Key vulnerability**: HBM memory, not logic — ECC helps but uncorrectable errors occur
+
+### 15.4 Operational Impact (at 650 km)
+
+At 150 rad/year:
+- HBM UECC: ~3 events/year/chip
+- Core logic SEE: ~1 event/year/chip
+- System crash: ~1 event per 3 years per chip
+- **~1 inference failure per 10 million inferences**
+
+---
+
+## 16. Space vs Terrestrial Power Economics
+
+Source: arXiv:2511.19468 analysis of launched power cost.
+
+### 16.1 Launched Power Cost
+
+```
+$/kW/year = (mass_satellite [kg] × launch_cost [$/kg]) / (power [kW] × lifespan [years])
+```
+
+| System | Mass (kg) | Power (kW) | Life (yr) | At $3,600/kg | At $200/kg |
+|--------|-----------|------------|-----------|--------------|------------|
+| Starlink v2 mini | 575 | 28 | 5 | $14,700/kW/yr | $810/kW/yr |
+| Starlink v1 | 260 | 7 | 5 | $26,600/kW/yr | $1,470/kW/yr |
+| OneWeb | 150 | 0.8 | 5 | $135,800/kW/yr | $7,500/kW/yr |
+
+### 16.2 Terrestrial Datacenter Power
+
+- US power cost: $0.06–0.25/kWh
+- PUE (power usage effectiveness): 1.09–1.4
+- Annualized: **$570–3,000/kW/year**
+
+### 16.3 Crossover
+
+**At $200/kg launch cost, optimized space power ($810/kW/yr) reaches approximate parity with terrestrial datacenter power ($570–3,000/kW/yr).**
+
+This is the key economic threshold for the space solar thesis.
+
+---
+
+*Last updated: 2026-02-26*
+*Sources: NASA ORDEM 3.2, ESA MASTER-8, ESA Space Environment Report 2025, SPENVIS/NASA90, NRLMSISE-00, NRC 1995, SORCE/TIM, Kopp & Lean 2011, Kasten & Young 1989, Meinel & Meinel, CODATA 2018, WGS-84, EGM96*

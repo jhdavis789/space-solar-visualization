@@ -85,3 +85,77 @@ The optimal altitude for space solar power sits in a narrow band around **600–
 - Only ~1–2% more launch energy than the minimum practical orbit
 
 This is not a coincidence — it's a fundamental consequence of Earth's geometry and the physics of dawn-dusk SSO orbits.
+
+---
+
+## External Validation: Google's Space AI Infrastructure Paper (Nov 2025)
+
+Source: Agüera y Arcas, Beals, Biggs, Bloom, Fischbacher, Gromov, Köster, Pravahan, Manyika. "Towards a future space-based, highly scalable AI infrastructure system design." arXiv:2511.19468, Nov 2025.
+
+### What They Propose
+
+An 81-satellite cluster at **650 km dawn-dusk sun-synchronous LEO** with Google Trillium TPUs, solar arrays, and free-space optical inter-satellite links. Essentially the end-state we're modeling toward — they skip the solar-only phase and design the full compute system.
+
+### Validates Our Framework
+
+1. **Orbit choice: 650 km dawn-dusk SSO** — dead center of our 600–700 km optimal band. They don't even discuss eclipses, which makes sense: per our analysis, 650 km is well above the 574 km eclipse-free threshold. Our work provides the theoretical justification they don't include.
+
+2. **Launch cost projections align.** Their Wright's Law analysis (20% learning rate across SpaceX history) projects ≤$200/kg by mid-2030s. Breakdown:
+   - No reuse: ~$460/kg
+   - 10× reuse: <$60/kg (with margins: <$250/kg to customer)
+   - 100× reuse: <$15/kg
+   - Fuel floor: $8/kg (our range: $10–30)
+   - Requires ~1,800 Starship launches / ~370,000 tonnes cumulative mass
+
+3. **Solar constant, overall thesis** — fully consistent with our parameters.
+
+### Challenges to Our Model
+
+1. **Panel efficiency: 22% vs our 30%.** They reference Starlink v2 mini (105 m², 22% efficiency, 28 kW). Real cost-optimized satellites use cheaper, lighter panels, not top-tier triple-junction GaAs. Our model's 30% may be optimistic for actual deployment economics.
+
+2. **Whole-system mass is 8–10× panel-only mass.** Starlink v2 mini: 575 kg for 28 kW = **20.5 kg/kW**. Our model assumes ~2.45 kg/kW (1 kg/m² panels at 30%). A real satellite bus (avionics, propulsion, structure, thermal, compute payload) dominates the mass budget. This is the largest gap in our current economics — we model panel launch cost but not total system launch cost.
+
+3. **Thermal management is unsolved — for both of us.** They call it "a critical optimization challenge" and provide zero numbers. No radiator sizing, no operating temperatures, no waste heat solution. In vacuum, radiation is the only cooling mechanism. For power-dense TPU clusters, this is the #1 engineering problem they haven't solved.
+
+### Key New Data Points
+
+**Radiation environment at 650 km (with 10mm Al shielding):**
+- Total dose: ~150 rad(Si)/year
+- 5-year mission total: ~750 rad(Si)
+- Google Trillium TPUs survived 15 krad cumulative (20× the 5-year requirement) without permanent failure
+- HBM memory is the weakest link: 1 uncorrectable ECC error per ~50 rad
+- In orbit: ~1 uncorrectable memory error per 10 million inferences
+- Silent data corruption: ~1 event per 10⁷ rad
+- System-level crash (SEFI): ~1 per 5 krad per chip
+
+**Implication:** Modern silicon (even non-radiation-hardened commercial TPUs) can survive 5+ years in LEO at 650 km with modest shielding. This is a concrete proof point for the data-center end-state.
+
+**Economics crossover threshold:**
+- At $200/kg launch cost, Starlink-class power costs ~$810/kW/year
+- Terrestrial datacenter power costs $570–3,000/kW/year
+- **At $200/kg, space-based power reaches approximate parity with terrestrial**
+- This is the critical threshold number for the entire thesis
+
+**Inter-satellite links:**
+- Target: 10 Tbps aggregate per link (needed for distributed ML training)
+- Demonstrated: 1.6 Tbps bidirectional on bench
+- Architecture: 24-channel DWDM at 1.55 μm → 9.6 Tbps per single aperture
+- Close proximity (100–200 m between satellites) makes the optics feasible
+
+**Formation flying:**
+- 81 satellites in 1 km radius cluster
+- J2-perturbation drift correctable to <3 m/s/year per km of cluster radius
+- ML-based flight control proposed (not demonstrated in orbit)
+- Zero delta-v possible under perfect Keplerian motion; real corrections are modest
+
+### Gaps in Their Paper That Our Work Fills
+
+They do NOT analyze:
+- Eclipse geometry or eclipse-free altitude threshold (our core finding)
+- Station-keeping ΔV budgets (our drag model with NRLMSISE-00 densities)
+- Debris risk by altitude (our NASA90 model + empirical profile)
+- Atmospheric density variation with solar cycle
+- Orbital lifetime / deorbit regulatory compliance
+- Detailed altitude selection trade-offs
+
+Our projects are complementary: we provide the orbital environment analysis they skip; they provide the compute hardware and networking analysis we haven't reached yet.

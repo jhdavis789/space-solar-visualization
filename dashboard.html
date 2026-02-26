@@ -734,7 +734,7 @@ body {
     </div>
     <div class="chart-card">
       <div class="chart-title" data-explain="chart-degradation">Panel Degradation Over Time</div>
-      <div class="chart-subtitle">Efficiency vs years — radiation + thermal cycling + UV</div>
+      <div class="chart-subtitle">Efficiency vs years — radiation + thermal cycling + UV · Theoretical limit: ~68% (infinite-junction, unconcentrated)</div>
       <div class="chart-container" id="chart-degradation"></div>
     </div>
   </div>
@@ -1145,9 +1145,9 @@ const PARAMS = {
     category: 'Panel Technology',
     name: 'Panel Efficiency (BOL)',
     unit: '%',
-    opt: 35, real: 30, pess: 24,
+    opt: 35, real: 30, pess: 22,
     min: 10, max: 50, step: 0.5,
-    source: 'NREL Best Research-Cell Chart (2025); France et al. 2022',
+    source: 'NREL Best Research-Cell Chart (2025); France et al. 2022; Starlink v2 ~22% (Agüera y Arcas et al. 2025)',
     type: 'slider',
   },
   panelMassPerM2: {
@@ -1196,6 +1196,12 @@ const PARAMS = {
     type: 'slider',
   },
   // ── Launch Economics ──
+  // TODO: Add Wright's Law projection curve as alternative to static launch cost tiers.
+  //   Model: C(Q) = C1 × Q^(log2(1-r)), learning rate r ≈ 20% (18-24% range).
+  //   Historical SpaceX data: Falcon 1 $30K/kg → Falcon Heavy $1.8K/kg over ~400t cumulative.
+  //   Projects ≤$200/kg by mid-2030s at ~370,000t cumulative (~1,800 Starship launches).
+  //   Source: Agüera y Arcas et al. arXiv:2511.19468, Fig. 3 / Section 4.4.
+  //   Could add a time-slider or cumulative-mass slider that derives $/kg from the curve.
   launchCostPerKg: {
     category: 'Launch Economics',
     name: 'Launch Cost',
@@ -1203,6 +1209,15 @@ const PARAMS = {
     opt: 50, real: 200, pess: 2720,
     min: 10, max: 5000, step: 10,
     source: 'SpaceX Starship Users Guide (2020); Falcon 9 current',
+    type: 'slider',
+  },
+  busMassPerKW: {
+    category: 'Launch Economics',
+    name: 'Satellite Bus Mass',
+    unit: 'kg/kW',
+    opt: 0, real: 5, pess: 16,
+    min: 0, max: 30, step: 0.5,
+    source: 'Starlink v2 mini: 575 kg / 28 kW = 20.5 kg/kW total, ~16 bus (arXiv:2511.19468)',
     type: 'slider',
   },
   starshipPayloadSSO: {
@@ -1708,7 +1723,8 @@ const EconomicsEngine = {
       params.panelMassPerM2, params.structureOverhead,
       params.shieldingMassPerM2, params.segmentSize, params.frameMassPerMeter
     );
-    return mpm2 / ppm2; // kg/W
+    const busMass = (params.busMassPerKW || 0) / 1000; // kg/kW → kg/W
+    return mpm2 / ppm2 + busMass; // kg/W
   },
 
   // ── Launch cost per watt ──
@@ -1783,8 +1799,10 @@ const EconomicsEngine = {
     const ppm2 = this.powerPerM2(params.panelEfficiency, params.tempCoefficient, params.dawnDuskFraction);
     const panelMassPerW = params.panelMassPerM2 / ppm2;
     const structMassPerW = (mpm2 - params.panelMassPerM2) / ppm2;
+    const busMassPerW = (params.busMassPerKW || 0) / 1000; // kg/kW → kg/W
     const panelLaunchCost = panelMassPerW * params.launchCostPerKg;
     const structLaunchCost = structMassPerW * params.launchCostPerKg;
+    const busLaunchCost = busMassPerW * params.launchCostPerKg;
 
     // Ground ops cost distributed per watt: ($/launch) / (W per launch)
     const payloadPerLaunch = params.starshipPayloadSSO * 1000; // kg
@@ -1800,12 +1818,13 @@ const EconomicsEngine = {
       (params.discountRate / 100 < 0.001 ? lifetime :
        (1 - Math.pow(1 + params.discountRate / 100, -lifetime)) / (params.discountRate / 100));
 
-    const totalCostPerW = panelCost + panelLaunchCost + structLaunchCost + groundOpsCostPerW + skNPV + insNPV + debrisNPV;
+    const totalCostPerW = panelCost + panelLaunchCost + structLaunchCost + busLaunchCost + groundOpsCostPerW + skNPV + insNPV + debrisNPV;
 
     return {
       panelCost,
       panelLaunchCost,
       structLaunchCost,
+      busLaunchCost,
       groundOpsCost: groundOpsCostPerW,
       stationKeepingNPV: skNPV,
       insuranceNPV: insNPV,
@@ -1943,6 +1962,7 @@ function buildParams() {
     tempCoefficient: getVal('tempCoefficient'),
     panelCostPerW: getVal('panelCostPerW'),
     launchCostPerKg: getVal('launchCostPerKg'),
+    busMassPerKW: getVal('busMassPerKW'),
     starshipPayloadSSO: getVal('starshipPayloadSSO'),
     groundOpsCostPerLaunch: getVal('groundOpsCostPerLaunch'),
     propulsionType: getVal('propulsionType'),
@@ -1990,7 +2010,7 @@ function runModel() {
       altitude: alt,
       totalCostPerW: bd.totalCostPerW,
       panelCost: bd.panelCost,
-      launchCost: bd.panelLaunchCost + bd.structLaunchCost,
+      launchCost: bd.panelLaunchCost + bd.structLaunchCost + bd.busLaunchCost,
       skCost: bd.stationKeepingNPV,
       debrisCost: bd.debrisReserveNPV,
     });
@@ -2082,7 +2102,7 @@ function computeSensitivity(baseParams, baseCost) {
   // Vary each parameter from optimistic to pessimistic, measure $/W impact
   const sensitiveParams = [
     'launchCostPerKg', 'panelCostPerW', 'panelEfficiency', 'panelMassPerM2',
-    'structureOverhead', 'altitude', 'radiationDegPerYear', 'discountRate',
+    'structureOverhead', 'busMassPerKW', 'altitude', 'radiationDegPerYear', 'discountRate',
     'operationalLifeTarget', 'dragCoefficient', 'debrisFluxMultiplier',
     'segmentSize', 'shieldingMassPerM2', 'insuranceRate',
   ];
@@ -2133,9 +2153,9 @@ const plotlyConfig = { responsive: true, displayModeBar: false };
 
 function renderWaterfallChart(results) {
   const bd = results.breakdown;
-  const categories = ['Panel Acq.', 'Panel Launch', 'Struct Launch', 'Ground Ops', 'Stn-Keep NPV', 'Insurance NPV', 'Debris Rsv', 'Total $/W'];
-  const values = [bd.panelCost, bd.panelLaunchCost, bd.structLaunchCost, bd.groundOpsCost, bd.stationKeepingNPV, bd.insuranceNPV, bd.debrisReserveNPV, bd.totalCostPerW];
-  const colors = ['#58a6ff', '#3fb950', '#39d2c0', '#6e7681', '#d29922', '#bc8cff', '#f85149', '#e6edf3'];
+  const categories = ['Panel Acq.', 'Panel Launch', 'Struct Launch', 'Bus Launch', 'Ground Ops', 'Stn-Keep NPV', 'Insurance NPV', 'Debris Rsv', 'Total $/W'];
+  const values = [bd.panelCost, bd.panelLaunchCost, bd.structLaunchCost, bd.busLaunchCost, bd.groundOpsCost, bd.stationKeepingNPV, bd.insuranceNPV, bd.debrisReserveNPV, bd.totalCostPerW];
+  const colors = ['#58a6ff', '#3fb950', '#39d2c0', '#f0883e', '#6e7681', '#d29922', '#bc8cff', '#f85149', '#e6edf3'];
 
   const trace = {
     x: categories,
@@ -2927,7 +2947,7 @@ const EXPLAINERS = {
 <h3>How it's calculated</h3>
 <div class="formula">Total $/W = Panel Acquisition + Launch Cost + Ground Ops + Station-Keeping NPV + Insurance NPV + Debris Reserve NPV</div>
 <p>Each component is computed per watt of effective BOL power output (solar flux &times; panel efficiency &times; thermal derating &times; sunlight fraction).</p>
-<p><strong>Panel acquisition</strong> is the ground cost of the solar cells per watt. <strong>Launch cost</strong> is the system mass (panels + structure + shielding + frames) multiplied by $/kg to orbit. <strong>Station-keeping NPV</strong> is the net present value of annual propellant costs over the asset lifetime. <strong>Insurance and debris reserve</strong> are actuarial estimates based on expected loss rates.</p>
+<p><strong>Panel acquisition</strong> is the ground cost of the solar cells per watt. <strong>Launch cost</strong> is the system mass (panels + structure + shielding + frames + satellite bus) multiplied by $/kg to orbit. <strong>Bus launch</strong> covers the satellite bus (avionics, propulsion hardware, thermal, comms). <strong>Station-keeping NPV</strong> is the net present value of annual propellant costs over the asset lifetime. <strong>Insurance and debris reserve</strong> are actuarial estimates based on expected loss rates.</p>
 
 <h3>What's NOT included</h3>
 <p>Spacecraft bus/avionics, power management &amp; distribution (PMAD), deployment mechanisms, integration &amp; testing, ground segment, and end-of-life disposal. These would add an estimated 50&ndash;150% to the total.</p>
@@ -2975,18 +2995,19 @@ const EXPLAINERS = {
     title: 'Mass per Kilowatt to Orbit',
     body: `
 <h3>What it means</h3>
-<p>Total system mass (panels + structure + shielding + frames) that must be launched to orbit per kilowatt of effective power. This is the inverse of "specific power" (W/kg), a key figure of merit for space power systems.</p>
+<p>Total system mass (solar array + satellite bus) that must be launched to orbit per kilowatt of effective power. This is the inverse of "specific power" (W/kg), a key figure of merit for space power systems.</p>
 
 <h3>How it's calculated</h3>
-<div class="formula">Mass/kW = (panel_mass + structure_overhead + shielding + frame) / (1361 W/m&sup2; &times; efficiency &times; thermal_factor &times; sunlight_fraction) &times; 1000</div>
-<p>The numerator is total areal density (kg/m&sup2;) and the denominator is effective power per m&sup2; (W/m&sup2;).</p>
+<div class="formula">Mass/kW = (panel_mass + structure + shielding + frame) / (1361 W/m&sup2; &times; eff &times; thermal &times; sunlight) &times; 1000 + bus_mass_per_kW</div>
+<p>The first term is the solar array system areal density divided by effective power. The second term is satellite bus overhead (avionics, propulsion hardware, thermal, comms, attitude control) per kW of array power.</p>
 
 <h3>Reference points</h3>
-<p>ISS legacy solar arrays: ~70 kg/kW (28.5 W/kg). ISS iROSA arrays: ~21&ndash;30 kg/kW (33&ndash;47 W/kg). Best operational arrays: ~10 kg/kW (~100 W/kg). MicroLink Devices IMM cells: 0.33 kg/kW at cell level (3,000 W/kg) &mdash; but array-level is 5&ndash;10&times; heavier.</p>
+<p>ISS legacy arrays: ~70 kg/kW. ISS iROSA: ~21&ndash;30 kg/kW. Best operational arrays: ~10 kg/kW. MicroLink IMM cells: 0.33 kg/kW at cell level (array-level 5&ndash;10&times; heavier).</p>
+<p><strong>Starlink v2 mini (whole satellite):</strong> 575 kg / 28 kW = 20.5 kg/kW total, of which ~16 kg/kW is bus mass. Source: <a href="https://arxiv.org/abs/2511.19468" target="_blank">Ag&uuml;era y Arcas et al. 2025</a>, Table 1.</p>
 
 <h3>Earth comparison</h3>
-<p>A typical rooftop Si panel: ~5 kg/kW (200 W/kg). Ground-mounted with racking: ~10 kg/kW. Mass is cheap on Earth; in space, every gram costs $0.05&ndash;2.72 to launch.</p>
-<div class="source-cite">Sources: NASA SST-SOA Power Subsystems; MicroLink Devices press release (2018); NREL</div>
+<p>Rooftop Si panel: ~5 kg/kW. Ground-mounted with racking: ~10 kg/kW. Mass is cheap on Earth; in space, every gram costs $0.05&ndash;2.72 to launch.</p>
+<div class="source-cite">Sources: NASA SST-SOA Power Subsystems; MicroLink Devices (2018); NREL; arXiv:2511.19468</div>
     `,
   },
   'kpi-numLaunches': {
@@ -2997,7 +3018,7 @@ const EXPLAINERS = {
 
 <h3>How it's calculated</h3>
 <div class="formula">Launches = ceil(Total_Mass_1GW / Payload_per_Launch)</div>
-<p>Total mass = (1 GW / W_per_m&sup2;) &times; kg_per_m&sup2;. Payload per launch is the Starship SSO capacity setting. This does not include propellant for station-keeping (delivered separately) or the spacecraft bus mass.</p>
+<p>Total mass = (1 GW / W_per_m&sup2;) &times; kg_per_m&sup2; + bus_mass. Payload per launch is the Starship SSO capacity setting. This does not include propellant for station-keeping (delivered separately). Bus mass (avionics, propulsion hardware, thermal, comms) is included via the Satellite Bus Mass parameter.</p>
 
 <h3>Key constraint: SSO access</h3>
 <p>Sun-synchronous orbit requires ~97&ndash;98&deg; inclination. As of 2026, <strong>no Starship launch pad exists at any polar-capable site</strong> (Vandenberg, Kodiak, etc.). From Boca Chica (28.5&deg;N), reaching SSO requires a dogleg maneuver that reduces payload by 30&ndash;50%. The payload-to-SSO figures in this model assume a future polar launch site.</p>
@@ -3090,9 +3111,15 @@ const EXPLAINERS = {
 <p><strong>Thermal factor:</strong> Panels in sunlight reach an equilibrium temperature determined by Stefan-Boltzmann radiation balance. At temperatures above the 25&deg;C reference, efficiency drops by the temperature coefficient (typically -0.2 to -0.45%/&deg;C).</p>
 <p><strong>Radiation factor:</strong> Exponential decay from trapped proton and electron fluence. Rate depends on altitude (higher = more exposure to inner Van Allen belt), shielding, and cell technology. Triple-junction GaAs: ~2%/yr typical in LEO. Silicon: 3&ndash;5%/yr unshielded.</p>
 
+<h3>Theoretical efficiency limits</h3>
+<p>&bull; <strong>33.7%:</strong> Shockley-Queisser limit (single junction, unconcentrated).<br>
+&bull; <strong>~47%:</strong> Best lab cell (6-junction concentrator, Fraunhofer ISE / NREL 2020).<br>
+&bull; <strong>~68%:</strong> Thermodynamic limit for infinite-junction cell at 1-sun (no concentration). This is the hard ceiling for flat-panel solar in space.<br>
+&bull; <strong>~87%:</strong> With maximum optical concentration (46,200&times;). Requires tracking optics, not practical for flat arrays.</p>
+
 <h3>What's simplified</h3>
 <p>Real degradation is not smooth &mdash; it depends on solar proton events (SPEs), South Atlantic Anomaly passes, and specific orbit parameters. The model uses an average annual rate, which is standard for preliminary design but will overestimate life for some orbits and underestimate for others.</p>
-<div class="source-cite">Sources: Messenger et al., JPL; OSTI; Spectrolab datasheets; Jordan &amp; Kurtz, NREL</div>
+<div class="source-cite">Sources: Messenger et al., JPL; OSTI; Spectrolab datasheets; Jordan &amp; Kurtz, NREL; Shockley &amp; Queisser 1961; De Vos 1980</div>
     `,
   },
   'chart-debris': {
@@ -3305,11 +3332,13 @@ E<sub>total</sub> = E<sub>kinetic</sub> + E<sub>potential</sub></div>
 <p>The fraction of incoming solar energy converted to electricity at AM0 (air mass zero, i.e., space conditions) at beginning of life, before radiation or thermal degradation.</p>
 
 <h3>State of the art</h3>
-<p>&bull; <strong>24%:</strong> Thin-film CIGS or advanced silicon. Available today at lower cost.<br>
+<p>&bull; <strong>22%:</strong> Starlink v2 mini (cost-optimized silicon, 105 m&sup2; panels, 28 kW). From <a href="https://arxiv.org/abs/2511.19468" target="_blank">Ag&uuml;era y Arcas et al. 2025</a>.<br>
+&bull; <strong>24%:</strong> Thin-film CIGS or advanced silicon. Available today at lower cost.<br>
 &bull; <strong>30%:</strong> Production triple-junction GaAs (Spectrolab XTJ Prime: 30.7%). The industry standard for space.<br>
 &bull; <strong>35%:</strong> Lab-demonstrated 4&ndash;6 junction cells. Not yet in production.<br>
 &bull; <strong>37.75%:</strong> Certified record for triple-junction IMM cell (MicroLink Devices, 2018).<br>
-&bull; <strong>47.1%:</strong> Lab record for 6-junction concentrator cell (NREL, 2020). Requires optical concentration, not applicable to flat panels.</p>
+&bull; <strong>47.1%:</strong> Lab record for 6-junction concentrator cell (NREL, 2020). Requires optical concentration, not applicable to flat panels.<br>
+&bull; <strong>~68%:</strong> Thermodynamic limit for infinite-junction cell. Theoretical ceiling.</p>
 
 <h3>Impact on $/W</h3>
 <p>Higher efficiency means more watts per m&sup2;, which means less mass to launch per watt. But the highest-efficiency cells are also the most expensive, so there's an optimum that depends on launch cost.</p>
@@ -3417,6 +3446,26 @@ E<sub>total</sub> = E<sub>kinetic</sub> + E<sub>potential</sub></div>
 <h3>Critical caveat</h3>
 <p>As of early 2026, <strong>no Starship launch infrastructure exists at any polar-capable site</strong>. Reaching SSO from Boca Chica requires a dogleg maneuver costing 30&ndash;50% of payload. The model's SSO figures assume a future Vandenberg or equivalent pad.</p>
 <div class="source-cite">Sources: SpaceX; NextBigFuture analysis (2025); NSF Forum; Benzinga (Musk quotes)</div>
+    `,
+  },
+  'param-busMassPerKW': {
+    title: 'Satellite Bus Mass per Kilowatt',
+    body: `
+<h3>What it controls</h3>
+<p>Additional mass per kilowatt of array power for the satellite bus: avionics, propulsion hardware, thermal radiators, communications, attitude control, and any compute payload. This is mass beyond the solar array system (panels + structure + shielding + frames).</p>
+
+<h3>Reference points</h3>
+<p>&bull; <strong>0 kg/kW:</strong> Array-only (our baseline assumption, no satellite bus modeled). Useful for isolating panel economics.<br>
+&bull; <strong>3&ndash;5 kg/kW:</strong> Purpose-built power satellite with minimal bus. Lightweight avionics, Hall thruster, basic comms.<br>
+&bull; <strong>16 kg/kW:</strong> Starlink v2 mini: 575 kg total / 28 kW = 20.5 kg/kW, minus ~4.5 kg/kW array = ~16 kg/kW bus.<br>
+&bull; <strong>20+ kg/kW:</strong> Compute-heavy satellite with TPU payload, large thermal radiators, high-bandwidth ISLs.</p>
+
+<h3>Impact on $/W</h3>
+<p>At $200/kg launch cost and 16 kg/kW bus mass: adds $3.20/W to launched cost. This is often the dominant cost component for real satellite systems, not the panels.</p>
+
+<h3>Source</h3>
+<p>Starlink v2 mini figures from <a href="https://arxiv.org/abs/2511.19468" target="_blank">Ag&uuml;era y Arcas et al., "Towards a future space-based, highly scalable AI infrastructure system design," arXiv:2511.19468 (Nov 2025)</a>, Table 1.</p>
+<div class="source-cite">Sources: arXiv:2511.19468; Starlink FCC filings</div>
     `,
   },
   'param-starshipPayloadSSO': {

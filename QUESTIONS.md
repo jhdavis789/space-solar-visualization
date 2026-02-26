@@ -150,6 +150,60 @@ End state: solar-powered data centers in space. This phase models energy product
 
 ---
 
+## 9. Compute Hardware in LEO (from Google paper, arXiv:2511.19468)
+
+Now that Google has published radiation test data for Trillium TPUs at 650 km SSO:
+
+- **Radiation budget:** At 150 rad(Si)/year (10mm Al shielding), how does this map to our altitude bands?
+  - What is the dose rate at 600 km vs 700 km vs 800 km?
+  - How does shielding mass trade against altitude choice?
+  - Inner Van Allen belt proximity: where does dose spike?
+- **Compute density:** How many PFLOPS per kg can current TPUs/GPUs achieve?
+  - At what $/kg launch cost does space compute become cheaper than terrestrial per FLOP?
+  - How does compute-per-kg improvement rate compare to launch cost decline rate?
+- **Thermal limits on compute density:**
+  - TPUs dissipate ~200-400W per chip. In vacuum, only radiative cooling works
+  - Stefan-Boltzmann: P = εσT⁴A — what radiator area per chip at 80°C? At 100°C?
+  - Does radiator mass dominate the mass budget for compute payloads?
+  - Google acknowledges this as unsolved. Can we model the thermal constraint?
+- **Memory as the weak link:**
+  - HBM: 1 uncorrectable error per 50 rad → ~3 per year at 650 km
+  - Is ECC sufficient? What about silent data corruption during training?
+  - Does this favor inference-only workloads in space?
+
+## 10. Whole-System Mass Budget
+
+Our current model uses panel-only mass (1 kg/m²). Real satellites are much heavier:
+
+- Starlink v2 mini: 575 kg / 28 kW = 20.5 kg/kW (total system)
+- What fraction is panels vs bus vs propulsion vs thermal vs payload?
+- For a power-only satellite (no compute payload), what's the minimum $/kW?
+- Should the dashboard have a "system overhead multiplier" on top of panel mass?
+
+## 11. Launch Cost Learning Curves
+
+Google uses Wright's Law (20% learning rate) to project $200/kg by mid-2030s:
+
+- Is 20% the right learning rate? Historical SpaceX data: Falcon 1 ($30K/kg) → Falcon Heavy ($1.8K/kg)
+- What cumulative mass is needed? They say ~370,000 tonnes (~1,800 Starship launches)
+- How sensitive is the crossover date to learning rate? (18% vs 24%)
+- Should we add a Wright's Law projection to the dashboard alongside our static tiers?
+
+## 12. Formation Flying vs Monolithic Arrays
+
+Google proposes 81-satellite clusters (1 km radius, 100-200m spacing):
+
+- What are the advantages over monolithic large arrays?
+  - Modularity, redundancy, incremental deployment
+  - Each satellite is Starship-compatible mass
+- What are the disadvantages?
+  - Inter-satellite link overhead, formation-keeping fuel
+  - Mutual thermal occlusion (IR radiation blocking between satellites)
+  - Complexity of coordination
+- How does the cluster architecture change our $/W calculation?
+
+---
+
 ## Requirements
 
 - Every assumption must cite its source (paper, dataset, manufacturer spec)
