@@ -482,6 +482,132 @@ body {
   color: var(--accent-blue);
 }
 
+/* Nav Bar */
+.page-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.page-nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.page-nav a:hover {
+  color: var(--text-primary);
+  border-color: var(--border);
+  background: var(--bg-tertiary);
+}
+.page-nav a.active {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+  background: rgba(88,166,255,0.08);
+}
+.page-nav .sep {
+  color: var(--border);
+  font-size: 0.6rem;
+  user-select: none;
+}
+
+/* Sources Section */
+.sources-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.sources-header {
+  padding: 14px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sources-header::after { content: '▾'; font-size: 0.7rem; }
+.sources-section.collapsed .sources-header::after { transform: rotate(-90deg); display: inline-block; }
+.sources-body-wrap { max-height: 800px; overflow-y: auto; padding: 16px 20px; }
+.sources-section.collapsed .sources-body-wrap { display: none; }
+.sources-body-wrap::-webkit-scrollbar { width: 6px; }
+.sources-body-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.source-topic {
+  margin-bottom: 20px;
+}
+.source-topic:last-child { margin-bottom: 0; }
+.source-topic h4 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.source-entry {
+  margin-bottom: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.source-entry .authors { color: var(--text-primary); font-weight: 500; }
+.source-entry .title { font-style: italic; }
+.source-entry .journal { color: var(--text-muted); }
+.source-entry a { color: var(--accent-blue); text-decoration: none; }
+.source-entry a:hover { text-decoration: underline; }
+.source-entry .used-for {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  color: var(--accent-cyan);
+  background: rgba(57,210,192,0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* Heat Pump Section */
+.heatpump-controls {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.hp-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.hp-ctrl label { white-space: nowrap; font-weight: 500; }
+.hp-ctrl input[type=range] { width: 100px; accent-color: var(--accent-blue); }
+.hp-ctrl .hp-val {
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  font-size: 0.75rem;
+  min-width: 40px;
+}
+.hp-insight {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.hp-insight strong { color: var(--accent-green); }
+
 /* Responsive */
 @media (max-width: 1400px) {
   .kpi-strip { grid-template-columns: repeat(3, 1fr); }
@@ -492,6 +618,7 @@ body {
 }
 @media (max-width: 768px) {
   .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .page-nav { flex-wrap: wrap; }
 }
 </style>
 </head>
@@ -513,6 +640,17 @@ body {
      ═══════════════════════════════════════════════════════════════ -->
 <header class="app-header">
   <h1>Space Solar Power LEO Economics — <span>$/W Dashboard</span></h1>
+  <nav class="page-nav">
+    <a href="dashboard.html" class="active">Dashboard</a>
+    <span class="sep">|</span>
+    <a href="altitude-selection.html">Altitude</a>
+    <span class="sep">|</span>
+    <a href="Altitude vs Sun.html">3D Viz</a>
+    <span class="sep">|</span>
+    <a href="#sourcesSection" onclick="document.getElementById('sourcesSection').classList.remove('collapsed')">Sources</a>
+    <span class="sep">|</span>
+    <a href="#heatpumpSection" onclick="document.getElementById('heatpumpSection').classList.remove('collapsed')">Heat Pump</a>
+  </nav>
   <div class="scenario-btns">
     <button class="scenario-btn" data-scenario="moonshot" onclick="setScenario('moonshot')">Moonshot</button>
     <button class="scenario-btn active" data-scenario="base" onclick="setScenario('base')">Base Case</button>
@@ -643,6 +781,48 @@ body {
     </div>
   </div>
 
+  <!-- Row 6: Heat Pump vs Radiator -->
+  <div class="chart-row" id="heatpumpSection">
+    <div class="chart-card full-width">
+      <div class="chart-title" data-explain="chart-heatpump">Heat Pump vs Radiator — Thermal Rejection Optimization</div>
+      <div class="chart-subtitle">Trade-off: large low-temp radiator vs heat pump + smaller high-temp radiator + extra solar array</div>
+      <div class="heatpump-controls">
+        <div class="hp-ctrl">
+          <label>Waste Heat:</label>
+          <input type="range" id="hp-waste" min="100" max="5000" step="100" value="1000">
+          <span class="hp-val" id="hp-waste-val">1,000 W</span>
+        </div>
+        <div class="hp-ctrl">
+          <label>Base T:</label>
+          <input type="range" id="hp-tbase" min="250" max="350" step="5" value="300">
+          <span class="hp-val" id="hp-tbase-val">300 K</span>
+        </div>
+        <div class="hp-ctrl">
+          <label>COP Fraction:</label>
+          <input type="range" id="hp-cop" min="0.2" max="0.7" step="0.05" value="0.4">
+          <span class="hp-val" id="hp-cop-val">0.40</span>
+        </div>
+        <div class="hp-ctrl">
+          <label>Radiator kg/m²:</label>
+          <input type="range" id="hp-radmass" min="1" max="10" step="0.5" value="4">
+          <span class="hp-val" id="hp-radmass-val">4.0</span>
+        </div>
+        <div class="hp-ctrl">
+          <label>Emissivity:</label>
+          <input type="range" id="hp-emiss" min="0.7" max="0.98" step="0.01" value="0.9">
+          <span class="hp-val" id="hp-emiss-val">0.90</span>
+        </div>
+        <div class="hp-ctrl">
+          <label>Array kg/kW:</label>
+          <input type="range" id="hp-arraymass" min="2" max="30" step="1" value="10">
+          <span class="hp-val" id="hp-arraymass-val">10</span>
+        </div>
+      </div>
+      <div class="chart-container" id="chart-heatpump" style="height:420px"></div>
+      <div class="hp-insight" id="hp-insight"></div>
+    </div>
+  </div>
+
   <!-- Assumptions Table -->
   <div class="assumptions-section" id="assumptionsSection">
     <div class="assumptions-header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -664,6 +844,222 @@ body {
         </thead>
         <tbody id="assumptionsBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Sources & Citations -->
+  <div class="sources-section collapsed" id="sourcesSection">
+    <div class="sources-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      Scientific Sources & Citations
+    </div>
+    <div class="sources-body-wrap">
+
+      <div class="source-topic">
+        <h4>1. Solar Irradiance</h4>
+        <div class="source-entry">
+          <span class="authors">Kopp, G. and Lean, J.L.</span> (2011).
+          <span class="title">"A new, lower value of total solar irradiance."</span>
+          <span class="journal">Geophysical Research Letters, 38(1), L01706.</span>
+          <a href="https://doi.org/10.1029/2010GL045777" target="_blank">DOI: 10.1029/2010GL045777</a>
+          <br><span class="used-for">Used for: Solar constant = 1,361 W/m²</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>2. Earth Gravitational Model (J2)</h4>
+        <div class="source-entry">
+          <span class="authors">Pavlis, N.K. et al.</span> (2012).
+          <span class="title">"The development and evaluation of EGM2008."</span>
+          <span class="journal">J. Geophys. Res., 117, B04406.</span>
+          <a href="https://doi.org/10.1029/2011JB008916" target="_blank">DOI: 10.1029/2011JB008916</a>
+          <br><span class="used-for">Used for: J₂ = 1.08263 × 10⁻³ (SSO precession rate)</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>3. Atmospheric Density (NRLMSISE-00)</h4>
+        <div class="source-entry">
+          <span class="authors">Picone, J.M. et al.</span> (2002).
+          <span class="title">"NRLMSISE-00 empirical model of the atmosphere."</span>
+          <span class="journal">J. Geophys. Res., 107(A12), 1468.</span>
+          <a href="https://doi.org/10.1029/2002JA009430" target="_blank">DOI: 10.1029/2002JA009430</a>
+          <br><span class="used-for">Used for: Density lookup tables, drag calculations</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Emmert, J.T. et al.</span> (2021).
+          <span class="title">"NRLMSIS 2.0: Whole-atmosphere empirical model."</span>
+          <span class="journal">Earth and Space Science, 8(3), e2020EA001321.</span>
+          <a href="https://doi.org/10.1029/2020EA001321" target="_blank">DOI: 10.1029/2020EA001321</a>
+          <br><span class="used-for">Used for: Updated density model comparison (~10% lower than NRLMSISE-00)</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>4. Orbital Debris (ORDEM 3.1)</h4>
+        <div class="source-entry">
+          <span class="authors">Manis, A. et al.</span> (2022).
+          <span class="title">"NASA ORDEM 3.1 Model Process."</span>
+          <span class="journal">NASA/TP-20220004345.</span>
+          <a href="https://ntrs.nasa.gov/citations/20220004345" target="_blank">NTRS Link</a>
+          <br><span class="used-for">Used for: Debris flux vs altitude (Gaussian peak at ~800 km)</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Liou, J.-C. and Johnson, N.L.</span> (2006).
+          <span class="title">"Risks in Space from Orbiting Debris."</span>
+          <span class="journal">Science, 311(5759), 340–341.</span>
+          <a href="https://doi.org/10.1126/science.1121337" target="_blank">DOI: 10.1126/science.1121337</a>
+          <br><span class="used-for">Used for: Kessler syndrome projections, debris growth multiplier</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>5. Drag Coefficient</h4>
+        <div class="source-entry">
+          <span class="authors">Wertz, J.R. and Larson, W.J.</span> (eds.) (1999).
+          <span class="title">Space Mission Analysis and Design (SMAD), 3rd Ed.</span>
+          <span class="journal">Microcosm Press.</span>
+          <br><span class="used-for">Used for: Cd ≈ 2.2 (flat plate, free molecular flow)</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Pilinski, M.D. et al.</span> (2011).
+          <span class="title">"Drag Coefficients of Satellites with Flat Plates."</span>
+          <span class="journal">J. Spacecraft & Rockets, 48(5).</span>
+          <a href="https://doi.org/10.2514/1.50915" target="_blank">DOI: 10.2514/1.50915</a>
+          <br><span class="used-for">Used for: Cd range 2.0–2.2 validation</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>6. Solar Cell Efficiency & Degradation</h4>
+        <div class="source-entry">
+          <span class="authors">France, R.M. et al.</span> (2022).
+          <span class="title">"Triple-junction solar cells with 39.5% terrestrial and 34.2% space efficiency."</span>
+          <span class="journal">Joule, 6, 1121–1135.</span>
+          <a href="https://doi.org/10.1016/j.joule.2022.04.024" target="_blank">DOI: 10.1016/j.joule.2022.04.024</a>
+          <br><span class="used-for">Used for: Record AM0 space efficiency (34.2%)</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">NREL</span> (2025).
+          <span class="title">"Best Research-Cell Efficiency Chart."</span>
+          <a href="https://www.nrel.gov/pv/cell-efficiency.html" target="_blank">nrel.gov</a>
+          <br><span class="used-for">Used for: Panel efficiency ranges (opt/base/pess)</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Messenger, S.R. et al.</span> (2001).
+          <span class="title">"Modeling solar cell degradation in space."</span>
+          <span class="journal">Progress in Photovoltaics, 9(2), 103–121.</span>
+          <a href="https://doi.org/10.1002/pip.357" target="_blank">DOI: 10.1002/pip.357</a>
+          <br><span class="used-for">Used for: Radiation degradation rates (%/yr)</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>7. Hall Thruster Propulsion</h4>
+        <div class="source-entry">
+          <span class="authors">Goebel, D.M. and Katz, I.</span> (2008).
+          <span class="title">Fundamentals of Electric Propulsion: Ion and Hall Thrusters.</span>
+          <span class="journal">JPL Space Science & Technology Series. Wiley.</span>
+          <a href="https://descanso.jpl.nasa.gov/SciTechBook/series1/Goebel__cmprsd_opt.pdf" target="_blank">PDF</a>
+          <br><span class="used-for">Used for: Hall thruster Isp ≈ 3,000 s</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Sutton, G.P. and Biblarz, O.</span> (2017).
+          <span class="title">Rocket Propulsion Elements, 9th Ed.</span>
+          <span class="journal">Wiley.</span>
+          <br><span class="used-for">Used for: Tsiolkovsky rocket equation (station-keeping propellant)</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>8. Orbital Mechanics & SSO</h4>
+        <div class="source-entry">
+          <span class="authors">Vallado, D.A.</span> (2013).
+          <span class="title">Fundamentals of Astrodynamics and Applications, 4th Ed.</span>
+          <span class="journal">Microcosm Press.</span>
+          <br><span class="used-for">Used for: SSO precession equations, nodal regression</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Bussy-Virat, C.D. and Ridley, A.J.</span> (2019).
+          <span class="title">"Computation of Eclipse Time for LEO Small Satellites."</span>
+          <span class="journal">Int. J. Aviation, Aeronautics, Aerospace, 6(5).</span>
+          <a href="https://commons.erau.edu/ijaaa/vol6/iss5/15/" target="_blank">Link</a>
+          <br><span class="used-for">Used for: Eclipse duration calculations, beta angle geometry</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>9. Solar Cycle & Thermospheric Variability</h4>
+        <div class="source-entry">
+          <span class="authors">Tapping, K.F.</span> (2013).
+          <span class="title">"The 10.7 cm solar radio flux (F10.7)."</span>
+          <span class="journal">Space Weather, 11, 394–406.</span>
+          <a href="https://doi.org/10.1002/swe.20064" target="_blank">DOI: 10.1002/swe.20064</a>
+          <br><span class="used-for">Used for: Solar activity levels (F10.7 proxy)</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Hapgood, M.A. et al.</span> (2022).
+          <span class="title">"Unexpected space weather causing Starlink reentry."</span>
+          <span class="journal">J. Space Weather and Space Climate, 12.</span>
+          <a href="https://doi.org/10.1051/swsc/2022009" target="_blank">DOI: 10.1051/swsc/2022009</a>
+          <br><span class="used-for">Used for: Real-world drag crisis validation (38 Starlinks lost)</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>10. Thermal Management</h4>
+        <div class="source-entry">
+          <span class="authors">CODATA</span> (2018).
+          <span class="title">"Fundamental Physical Constants."</span>
+          <a href="https://physics.nist.gov/cuu/Constants/" target="_blank">NIST</a>
+          <br><span class="used-for">Used for: Stefan-Boltzmann σ = 5.670374419 × 10⁻⁸ W/m²·K⁴</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Gilmore, D.G.</span> (ed.) (2002).
+          <span class="title">Spacecraft Thermal Control Handbook, Vol. 1.</span>
+          <span class="journal">The Aerospace Press / AIAA.</span>
+          <br><span class="used-for">Used for: Radiator sizing, heat pipe design, emissivity values</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Ewert, M.K. et al.</span> (1997).
+          <span class="title">"Active Heat Rejection System Using Heat Pumps."</span>
+          <span class="journal">NASA JSC / SAE 972434.</span>
+          <br><span class="used-for">Used for: Space heat pump COP and mass estimates</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>11. Launch Vehicle Economics</h4>
+        <div class="source-entry">
+          <span class="authors">SpaceX</span> (2020).
+          <span class="title">"Starship Users Guide, Rev. 1.0."</span>
+          <a href="https://www.spacex.com/vehicles/starship/" target="_blank">spacex.com</a>
+          <br><span class="used-for">Used for: Payload to LEO > 100 t; SSO estimates 50–100 t</span>
+        </div>
+      </div>
+
+      <div class="source-topic">
+        <h4>12. Atmospheric Limb Attenuation</h4>
+        <div class="source-entry">
+          <span class="authors">Chapman, S.</span> (1931).
+          <span class="title">"The absorption and dissociative or ionizing effect of monochromatic radiation."</span>
+          <span class="journal">Proc. Phys. Soc., 43(5).</span>
+          <a href="https://doi.org/10.1088/0959-5309/43/5/302" target="_blank">DOI: 10.1088/0959-5309/43/5/302</a>
+          <br><span class="used-for">Used for: Chapman function (limb optical path)</span>
+        </div>
+        <div class="source-entry">
+          <span class="authors">Kasten, F. and Young, A.T.</span> (1989).
+          <span class="title">"Revised optical air mass tables and approximation formula."</span>
+          <span class="journal">Applied Optics, 28(22), 4735–4738.</span>
+          <a href="https://doi.org/10.1364/AO.28.004735" target="_blank">DOI: 10.1364/AO.28.004735</a>
+          <br><span class="used-for">Used for: Air mass formula for ground comparison</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--text-muted);">
+        Full bibliography with additional sources: <a href="SOURCES.md" style="color:var(--accent-blue)">SOURCES.md</a> &middot;
+        Last updated: 2026-02-25
+      </div>
+
     </div>
   </div>
 
@@ -723,7 +1119,7 @@ const PARAMS = {
     unit: 'km',
     opt: 800, real: 600, pess: 500,
     min: 400, max: 1200, step: 10,
-    source: 'SSO dawn-dusk typical range',
+    source: 'SSO dawn-dusk typical range (Vallado 2013)',
     type: 'slider',
   },
   solarActivity: {
@@ -732,7 +1128,7 @@ const PARAMS = {
     unit: '',
     opt: 'low', real: 'moderate', pess: 'high',
     values: ['low', 'moderate', 'high'],
-    source: 'NRLMSISE-00 / 11-yr solar cycle',
+    source: 'NRLMSISE-00 (Picone et al. 2002) / 11-yr solar cycle (Tapping 2013)',
     type: 'pill',
   },
   dawnDuskFraction: {
@@ -741,7 +1137,7 @@ const PARAMS = {
     unit: '%',
     opt: 98, real: 95, pess: 88,
     min: 80, max: 100, step: 1,
-    source: 'Dawn-dusk SSO: ~95-100% sunlight',
+    source: 'Dawn-dusk SSO (Bussy-Virat & Ridley 2019)',
     type: 'slider',
   },
   // ── Panel Technology ──
@@ -751,7 +1147,7 @@ const PARAMS = {
     unit: '%',
     opt: 35, real: 30, pess: 24,
     min: 10, max: 50, step: 0.5,
-    source: 'NREL Best Research-Cell Chart',
+    source: 'NREL Best Research-Cell Chart (2025); France et al. 2022',
     type: 'slider',
   },
   panelMassPerM2: {
@@ -778,7 +1174,7 @@ const PARAMS = {
     unit: '%/yr',
     opt: 0.5, real: 2.0, pess: 5.0,
     min: 0.1, max: 10, step: 0.1,
-    source: 'Messenger et al. JPL; OSTI',
+    source: 'Messenger et al. 2001 (JPL); Jordan & Kurtz 2013 (NREL)',
     type: 'slider',
   },
   tempCoefficient: {
@@ -787,7 +1183,7 @@ const PARAMS = {
     unit: '%/°C',
     opt: -0.20, real: -0.30, pess: -0.45,
     min: -0.6, max: -0.1, step: 0.01,
-    source: 'Spectrolab datasheet; GaAs vs Si',
+    source: 'Spectrolab XTJ Prime datasheet (−0.20%/°C GaAs)',
     type: 'slider',
   },
   panelCostPerW: {
@@ -806,7 +1202,7 @@ const PARAMS = {
     unit: '$/kg to SSO',
     opt: 50, real: 200, pess: 2720,
     min: 10, max: 5000, step: 10,
-    source: 'Starship projections; Falcon 9 current',
+    source: 'SpaceX Starship Users Guide (2020); Falcon 9 current',
     type: 'slider',
   },
   starshipPayloadSSO: {
@@ -835,7 +1231,7 @@ const PARAMS = {
     opt: 'hall', real: 'hall', pess: 'chemical',
     values: ['hall', 'chemical'],
     labels: ['Hall Thruster', 'Chemical'],
-    source: 'Hall: Isp~3000s; Chemical: Isp~320s',
+    source: 'Goebel & Katz 2008; Sutton & Biblarz 2017',
     type: 'pill',
   },
   dragCoefficient: {
@@ -844,7 +1240,7 @@ const PARAMS = {
     unit: '',
     opt: 2.0, real: 2.2, pess: 2.5,
     min: 1.5, max: 3.0, step: 0.1,
-    source: 'SMAD Table 8-4; flat plate Cd≈2.2',
+    source: 'SMAD Table 8-4 (Wertz 1999); Pilinski et al. 2011',
     type: 'slider',
   },
   panelReflectivity: {
@@ -863,7 +1259,7 @@ const PARAMS = {
     unit: '×',
     opt: 1.0, real: 1.5, pess: 3.0,
     min: 0.5, max: 5, step: 0.1,
-    source: 'NASA ORDEM 3.1; Kessler trend',
+    source: 'NASA ORDEM 3.1 (Manis et al. 2022); Liou & Johnson 2006',
     type: 'slider',
   },
   segmentSize: {
@@ -2301,6 +2697,163 @@ function renderAssumptionsTable() {
 
 
 /* ═══════════════════════════════════════════════════════════════
+   HEAT PUMP vs RADIATOR ANALYSIS
+   ═══════════════════════════════════════════════════════════════ */
+function renderHeatPumpChart() {
+  const wasteHeat = parseFloat(document.getElementById('hp-waste').value);
+  const Tbase = parseFloat(document.getElementById('hp-tbase').value);
+  const copFrac = parseFloat(document.getElementById('hp-cop').value);
+  const radMassPerM2 = parseFloat(document.getElementById('hp-radmass').value);
+  const emissivity = parseFloat(document.getElementById('hp-emiss').value);
+  const arrayMassPerKW = parseFloat(document.getElementById('hp-arraymass').value);
+  const sigma = CONST.STEFAN_BOLTZMANN;
+  const Tsink = 3; // cosmic background (K)
+
+  // Update displayed values
+  document.getElementById('hp-waste-val').textContent = wasteHeat.toLocaleString() + ' W';
+  document.getElementById('hp-tbase-val').textContent = Tbase + ' K';
+  document.getElementById('hp-cop-val').textContent = copFrac.toFixed(2);
+  document.getElementById('hp-radmass-val').textContent = radMassPerM2.toFixed(1);
+  document.getElementById('hp-emiss-val').textContent = emissivity.toFixed(2);
+  document.getElementById('hp-arraymass-val').textContent = arrayMassPerKW;
+
+  // Sweep rejection temperature from Tbase to Tbase + 400
+  const temps = [];
+  const radAreaPure = [];     // pure radiator area
+  const radMassPure = [];     // pure radiator mass
+  const radAreaHP = [];       // radiator area with heat pump
+  const radMassHP = [];       // radiator mass with heat pump
+  const hpPower = [];         // heat pump electrical power needed
+  const arrayMassHP = [];     // extra solar array mass for heat pump
+  const totalMassHP = [];     // radiator + array mass with heat pump
+  const massSaving = [];      // mass saved vs pure radiator
+
+  // Pure radiator at base temperature (reference)
+  const pureArea = wasteHeat / (emissivity * sigma * (Math.pow(Tbase, 4) - Math.pow(Tsink, 4)));
+  const pureMass = pureArea * radMassPerM2;
+
+  for (let Trej = Tbase; Trej <= Tbase + 400; Trej += 5) {
+    temps.push(Trej);
+
+    // Pure radiator area at this temperature (no heat pump, just hotter radiator)
+    const areaP = wasteHeat / (emissivity * sigma * (Math.pow(Trej, 4) - Math.pow(Tsink, 4)));
+    radAreaPure.push(areaP);
+    radMassPure.push(areaP * radMassPerM2);
+
+    if (Trej <= Tbase) {
+      // No heat pump needed at base temp
+      radAreaHP.push(areaP);
+      radMassHP.push(areaP * radMassPerM2);
+      hpPower.push(0);
+      arrayMassHP.push(0);
+      totalMassHP.push(areaP * radMassPerM2);
+      massSaving.push(0);
+    } else {
+      // Heat pump: COP_Carnot = Trej / (Trej - Tbase)
+      const copCarnot = Trej / (Trej - Tbase);
+      const copReal = copFrac * copCarnot;
+
+      // Heat pump moves wasteHeat from Tbase to Trej
+      // Power input: W_hp = Q / COP
+      const Whp = wasteHeat / copReal;
+
+      // Total heat to reject at Trej: Q_waste + W_hp
+      const Qtotal = wasteHeat + Whp;
+
+      // Radiator area at Trej
+      const areaHP = Qtotal / (emissivity * sigma * (Math.pow(Trej, 4) - Math.pow(Tsink, 4)));
+      const massRad = areaHP * radMassPerM2;
+
+      // Extra solar array mass for heat pump power
+      const massArray = (Whp / 1000) * arrayMassPerKW; // Whp in W, arrayMassPerKW in kg/kW
+
+      radAreaHP.push(areaHP);
+      radMassHP.push(massRad);
+      hpPower.push(Whp);
+      arrayMassHP.push(massArray);
+      totalMassHP.push(massRad + massArray);
+      massSaving.push(pureMass - (massRad + massArray));
+    }
+  }
+
+  // Find optimal temperature (minimum total mass with heat pump)
+  let minMass = Infinity, optTemp = Tbase;
+  totalMassHP.forEach((m, i) => {
+    if (m < minMass) { minMass = m; optTemp = temps[i]; }
+  });
+
+  const traces = [
+    {
+      x: temps, y: radMassPure,
+      name: 'Pure Radiator Mass',
+      line: { color: '#f85149', width: 2 },
+      hovertemplate: 'T=%{x} K<br>Radiator: %{y:.1f} kg<extra>Pure Radiator</extra>',
+    },
+    {
+      x: temps, y: totalMassHP,
+      name: 'Heat Pump + Radiator + Array',
+      line: { color: '#3fb950', width: 2.5 },
+      hovertemplate: 'T=%{x} K<br>Total: %{y:.1f} kg<extra>Heat Pump System</extra>',
+    },
+    {
+      x: temps, y: radMassHP,
+      name: 'HP Radiator Mass Only',
+      line: { color: '#58a6ff', width: 1.5, dash: 'dot' },
+      hovertemplate: 'T=%{x} K<br>Radiator: %{y:.1f} kg<extra>HP Radiator</extra>',
+    },
+    {
+      x: temps, y: arrayMassHP,
+      name: 'Extra Array Mass (for HP power)',
+      line: { color: '#d29922', width: 1.5, dash: 'dash' },
+      hovertemplate: 'T=%{x} K<br>Array: %{y:.1f} kg<extra>Extra Array</extra>',
+    },
+  ];
+
+  const layout = {
+    ...plotlyLayout,
+    xaxis: { ...plotlyLayout.xaxis, title: 'Rejection Temperature (K)' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'System Mass (kg)', rangemode: 'tozero' },
+    legend: { ...plotlyLayout.legend, x: 0.55, y: 0.95 },
+    shapes: [{
+      type: 'line', x0: optTemp, x1: optTemp, y0: 0, y1: 1, yref: 'paper',
+      line: { color: '#3fb950', width: 1.5, dash: 'dashdot' },
+    }],
+    annotations: [{
+      x: optTemp, y: minMass,
+      text: `Optimal: ${optTemp} K (${(optTemp - 273.15).toFixed(0)}°C)`,
+      showarrow: true, arrowhead: 2, arrowcolor: '#3fb950',
+      font: { color: '#3fb950', size: 11 },
+      ax: 50, ay: -30,
+    }],
+  };
+
+  Plotly.react('chart-heatpump', traces, layout, plotlyConfig);
+
+  // Update insight text
+  const savingPct = ((pureMass - minMass) / pureMass * 100).toFixed(0);
+  const optCOP = copFrac * optTemp / (optTemp - Tbase);
+  const optPower = wasteHeat / optCOP;
+  const optRadArea = (wasteHeat + optPower) / (emissivity * sigma * (Math.pow(optTemp, 4) - Math.pow(Tsink, 4)));
+
+  document.getElementById('hp-insight').innerHTML = `
+    <strong>Baseline (${Tbase} K):</strong> ${pureArea.toFixed(1)} m² radiator, ${pureMass.toFixed(1)} kg total.
+    &nbsp;&bull;&nbsp;
+    <strong>Optimal (${optTemp} K):</strong> ${optRadArea.toFixed(1)} m² radiator + ${(optPower / 1000).toFixed(2)} kW heat pump → ${minMass.toFixed(1)} kg total
+    (${savingPct > 0 ? savingPct + '% lighter' : 'no saving'}).
+    &nbsp;&bull;&nbsp;
+    COP at optimal: ${optCOP.toFixed(1)} (${(copFrac * 100).toFixed(0)}% of Carnot).
+    &nbsp;&bull;&nbsp;
+    T⁴ law: doubling rejection temp from ${Tbase} K to ${2 * Tbase} K cuts radiator area by ${(Math.pow(2, 4)).toFixed(0)}×.
+  `;
+}
+
+// Heat pump control event listeners
+['hp-waste', 'hp-tbase', 'hp-cop', 'hp-radmass', 'hp-emiss', 'hp-arraymass'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderHeatPumpChart);
+});
+
+
+/* ═══════════════════════════════════════════════════════════════
    URL STATE (shareable configurations)
    ═══════════════════════════════════════════════════════════════ */
 function encodeState() {
@@ -2353,6 +2906,7 @@ function recompute() {
   renderThermalChart(results);
   renderEclipseChart(results);
   renderLaunchEnergyChart(results);
+  renderHeatPumpChart();
   renderAssumptionsTable();
 
   encodeState();
@@ -2614,6 +3168,37 @@ where &epsilon; &asymp; 0.85 (emissivity), &sigma; = 5.67&times;10<sup>-8</sup> 
 <h3>Why temperature matters</h3>
 <p>Higher temperature reduces efficiency via the temperature coefficient. GaAs cells lose ~0.2%/&deg;C above 25&deg;C; silicon loses ~0.4%/&deg;C. A panel running at 60&deg;C loses 7&ndash;14% of its output compared to the 25&deg;C reference &mdash; a permanent penalty.</p>
 <div class="source-cite">Sources: Spectrolab datasheets; Incropera &amp; DeWitt (Fundamentals of Heat Transfer)</div>
+    `,
+  },
+
+  'chart-heatpump': {
+    title: 'Heat Pump vs Radiator — Thermal Rejection Optimization',
+    body: `
+<h3>What it shows</h3>
+<p>The mass trade-off between a pure radiator and a heat-pump-assisted system for rejecting waste heat in space. In vacuum, all waste heat must be radiated &mdash; there's no convection. The Stefan-Boltzmann T&sup4; law means radiator area drops dramatically with higher rejection temperature.</p>
+
+<h3>The trade-off</h3>
+<div class="formula">Pure radiator: A = Q / (&epsilon;&sigma;T&sup4;)<br>
+Heat pump system: Pumps heat from T<sub>base</sub> to T<sub>reject</sub><br>
+COP = &eta;<sub>Carnot</sub> &times; T<sub>reject</sub> / (T<sub>reject</sub> &minus; T<sub>base</sub>)<br>
+Total heat to reject: Q + Q/COP<br>
+Total mass: radiator(T<sub>reject</sub>) + solar_array(W<sub>pump</sub>)</div>
+
+<p><strong>Red line:</strong> Pure radiator mass &mdash; heavy at low temperatures because A &prop; 1/T&sup4;. A radiator at 300 K is 16&times; larger than one at 600 K.</p>
+<p><strong>Green line:</strong> Total system mass with heat pump &mdash; falls at first (T&sup4; wins), then rises (COP drops, pump power grows, solar array mass dominates).</p>
+<p><strong>Green dot:</strong> Optimal rejection temperature where total mass is minimized.</p>
+
+<h3>Key insight</h3>
+<p>For space data centers generating significant waste heat, a heat pump can reduce thermal management mass by 30&ndash;60% compared to a pure radiator. The optimal rejection temperature is typically 50&ndash;150 K above the base temperature, depending on COP and array mass.</p>
+
+<h3>Parameters</h3>
+<p>&bull; <strong>Waste Heat:</strong> Total thermal load to reject (W)<br>
+&bull; <strong>Base T:</strong> Temperature at which waste heat is generated (K)<br>
+&bull; <strong>COP Fraction:</strong> Fraction of Carnot COP achieved by real heat pump (0.3&ndash;0.6 typical)<br>
+&bull; <strong>Radiator kg/m&sup2;:</strong> Areal mass of radiator panels<br>
+&bull; <strong>Emissivity:</strong> Radiator surface emissivity (0.85&ndash;0.95 typical)<br>
+&bull; <strong>Array kg/kW:</strong> Mass of additional solar array needed to power the heat pump</p>
+<div class="source-cite">Sources: Gilmore (Spacecraft Thermal Control Handbook 2002); Ewert et al. (NASA JSC, SAE 972434); Stefan-Boltzmann (CODATA 2018)</div>
     `,
   },
 

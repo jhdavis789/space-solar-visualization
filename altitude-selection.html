@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Altitude Selection — Space Solar Power</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+  --border: #30363d; --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  --blue: #58a6ff; --green: #3fb950; --orange: #d29922; --red: #f85149;
+  --purple: #bc8cff; --cyan: #39d2c0;
+  --mono: 'SF Mono','Cascadia Code','Fira Code',Consolas,monospace;
+  --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header h1{font-size:1.15rem;font-weight:600}
+.header h1 span{color:var(--blue)}
+.header .sub{font-size:.75rem;color:var(--text2);margin-top:2px}
+.page-nav{display:flex;gap:4px;align-items:center}
+.page-nav a{color:var(--text2);text-decoration:none;font-size:.72rem;padding:4px 10px;border-radius:4px;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.page-nav a:hover{color:var(--text);border-color:var(--border);background:var(--bg3)}
+.page-nav a.active{color:var(--blue);border-color:var(--blue);background:rgba(88,166,255,.08)}
+.page-nav .sep{color:var(--border);font-size:.6rem;user-select:none}
+
+.controls{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.ctrl-group{display:flex;align-items:center;gap:8px}
+.ctrl-group label{font-size:.78rem;color:var(--text2);white-space:nowrap}
+.ctrl-group input[type=range]{width:140px;accent-color:var(--blue)}
+.ctrl-group .val{font-size:.82rem;color:var(--text);font-family:var(--mono);min-width:50px}
+.ctrl-group select{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:.78rem}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 20px}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.chart-card h3{font-size:.85rem;font-weight:600;padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text)}
+.chart-card h3 span{color:var(--text2);font-weight:400;font-size:.75rem;margin-left:6px}
+.chart-container{height:340px}
+
+.sources{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin:0 20px 20px;padding:14px 18px}
+.sources h3{font-size:.85rem;font-weight:600;margin-bottom:8px;color:var(--text2)}
+.sources p{font-size:.72rem;color:var(--text3);line-height:1.6;margin-bottom:4px}
+.sources a{color:var(--blue);text-decoration:none}
+.sources a:hover{text-decoration:underline}
+
+.summary-bar{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin:0 20px 16px;padding:14px 18px;display:flex;gap:24px;flex-wrap:wrap}
+.summary-item{display:flex;flex-direction:column}
+.summary-item .label{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.summary-item .value{font-size:1rem;font-weight:600;font-family:var(--mono)}
+.summary-item .value.good{color:var(--green)}
+.summary-item .value.warn{color:var(--orange)}
+.summary-item .value.bad{color:var(--red)}
+
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Altitude Selection — <span>Space Solar Power in LEO</span></h1>
+    <div class="sub">Sunshine, debris, and drag vs altitude. Let the physics pick the band.</div>
+  </div>
+  <nav class="page-nav">
+    <a href="dashboard.html">Dashboard</a>
+    <span class="sep">|</span>
+    <a href="altitude-selection.html" class="active">Altitude</a>
+    <span class="sep">|</span>
+    <a href="Altitude vs Sun.html">3D Viz</a>
+    <span class="sep">|</span>
+    <a href="dashboard.html#sourcesSection">Sources</a>
+  </nav>
+</div>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <label>Year:</label>
+    <input type="range" id="year-slider" min="2025" max="2060" step="1" value="2026">
+    <span class="val" id="year-val">2026</span>
+  </div>
+  <div class="ctrl-group">
+    <label>Solar Cycle:</label>
+    <select id="solar-cycle">
+      <option value="min">Solar Min (F10.7 ≈ 70)</option>
+      <option value="avg" selected>Average (F10.7 ≈ 110)</option>
+      <option value="max">Solar Max (F10.7 ≈ 140)</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>Orbit Type:</label>
+    <select id="orbit-type">
+      <option value="sso-dd" selected>Dawn-Dusk SSO</option>
+      <option value="sso-noon">Noon-Midnight SSO</option>
+      <option value="iss">ISS-like (51.6°)</option>
+      <option value="all">Show All</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>Array Area (m²):</label>
+    <input type="range" id="area-slider" min="100" max="100000" step="100" value="10000">
+    <span class="val" id="area-val">10,000</span>
+  </div>
+  <div class="ctrl-group">
+    <label>Array Mass (kg/m²):</label>
+    <input type="range" id="mass-slider" min="0.1" max="5" step="0.1" value="1.0">
+    <span class="val" id="mass-val">1.0</span>
+  </div>
+</div>
+
+<div class="summary-bar" id="summary-bar"></div>
+
+<div class="grid">
+  <div class="chart-card">
+    <h3>Sunshine vs Altitude <span>Annual average sunlit fraction & eclipse duration</span></h3>
+    <div class="chart-container" id="chart-sunshine"></div>
+  </div>
+  <div class="chart-card">
+    <h3>Debris Flux vs Altitude <span>Collision probability by object size class</span></h3>
+    <div class="chart-container" id="chart-debris"></div>
+  </div>
+  <div class="chart-card">
+    <h3>Atmospheric Drag vs Altitude <span>Station-keeping ΔV requirement</span></h3>
+    <div class="chart-container" id="chart-drag"></div>
+  </div>
+  <div class="chart-card">
+    <h3>Combined Altitude Penalties <span>Normalized factors — lower is better</span></h3>
+    <div class="chart-container" id="chart-combined"></div>
+  </div>
+</div>
+
+<div class="sources">
+  <h3>Data Sources & Citations</h3>
+  <p><strong>Orbital mechanics:</strong> WGS-84 (R_E = 6371 km), EGM96 (J₂ = 1.08263×10⁻³), μ = 398600.4 km³/s²</p>
+  <p><strong>Solar constant:</strong> 1361 W/m² — Kopp & Lean 2011, SORCE/TIM</p>
+  <p><strong>Debris model:</strong> NASA90 analytical model via <a href="https://www.spenvis.oma.be/help/background/metdeb/metdeb.html">SPENVIS</a>, calibrated to ESA MASTER-8 (Aug 2024) population counts. Empirical altitude profile from NASA <a href="https://orbitaldebris.jsc.nasa.gov/modeling/ordem.html">ORDEM 3.2</a>, <a href="https://nap.nationalacademies.org/read/4765/chapter/6">NRC 1995</a>, HAX radar measurements.</p>
+  <p><strong>Atmospheric density:</strong> NRLMSISE-00 tabulated values for solar min/max. Scale heights fitted per altitude band.</p>
+  <p><strong>Debris population (2024):</strong> 54,000 objects >10 cm; 1.2M objects 1–10 cm; 140M objects 1 mm–1 cm — <a href="https://www.esa.int/Space_Safety/Space_Debris/ESA_Space_Environment_Report_2025">ESA Space Environment Report 2025</a></p>
+  <p><strong>Orbital lifetimes:</strong> NASA Orbital Debris Program Office FAQ.</p>
+  <p><strong>Drag coefficients:</strong> C_d ≈ 2.2 (flat plate), standard for solar arrays.</p>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  PHYSICAL CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const Re = 6371;          // km, Earth radius (WGS-84)
+const mu = 398600.4;      // km³/s², gravitational parameter
+const J2 = 1.08263e-3;    // J2 perturbation (EGM96)
+const DEG = Math.PI / 180;
+const RAD = 180 / Math.PI;
+const SOLAR_CONST = 1361; // W/m², AM0
+
+// ═══════════════════════════════════════════════════════════════
+//  ORBITAL MECHANICS (from Altitude vs Sun.html — proven code)
+// ═══════════════════════════════════════════════════════════════
+
+// Sun-synchronous inclination for given altitude
+function ssoIncRad(alt) {
+  const r = Re + alt;
+  const n = Math.sqrt(mu / Math.pow(r, 3));
+  const c = -1.991e-7 / (1.5 * J2 * n * Math.pow(Re / r, 2));
+  return Math.acos(Math.max(-1, Math.min(1, c)));
+}
+
+// Orbital period in seconds
+function orbPeriod(alt) {
+  return 2 * Math.PI * Math.sqrt(Math.pow(Re + alt, 3) / mu);
+}
+
+// Orbital velocity in km/s
+function orbVelocity(alt) {
+  return Math.sqrt(mu / (Re + alt));
+}
+
+// Shadow half-angle (Earth's angular radius from orbit)
+function rhoRad(alt) {
+  return Math.asin(Re / (Re + alt));
+}
+
+// Sun declination from day of year
+function sunDecl(doy) {
+  return 23.5 * Math.sin(2 * Math.PI * (doy - 80) / 365.25);
+}
+
+// Beta angle for SSO with given RAAN offset from sun
+// Dawn-dusk: RAAN = α_sun + 90° → sin(β) = sin(i + δ)
+// Noon-midnight: RAAN = α_sun + 0° → different geometry
+function ssoBetaRad(incRad, declDeg) {
+  return Math.asin(Math.max(-1, Math.min(1, Math.sin(incRad + declDeg * DEG))));
+}
+
+// Beta angle for noon-midnight SSO (RAAN = α_sun)
+// sin(β) = cos(i) * sin(δ) + sin(i) * cos(δ) * sin(0) = cos(i) * sin(δ)
+// Wait — for LTAN 12:00 (noon), Ω = α_sun (RAAN aligned with sun direction).
+// The general formula: sin(β) = sin(i)cos(δ)sin(Ω-α_sun) + cos(i)sin(δ)
+// For Ω - α_sun = 0: sin(β) = cos(i)*sin(δ)
+function ssoNoonBetaRad(incRad, declDeg) {
+  return Math.asin(Math.max(-1, Math.min(1, Math.cos(incRad) * Math.sin(declDeg * DEG))));
+}
+
+// Beta angle for ISS-like orbit (51.6° inclination, RAAN drifts)
+function issBetaRad(incDeg, raanOffDeg, declDeg) {
+  const s = Math.sin(incDeg * DEG) * Math.cos(declDeg * DEG) * Math.sin(raanOffDeg * DEG)
+          + Math.cos(incDeg * DEG) * Math.sin(declDeg * DEG);
+  return Math.asin(Math.max(-1, Math.min(1, s)));
+}
+
+// Sunlit fraction per orbit given beta angle and shadow half-angle
+function sunlitFrac(beta, rho) {
+  if (Math.abs(beta) >= rho) return 1;
+  return 1 - Math.acos(Math.cos(rho) / Math.cos(beta)) / Math.PI;
+}
+
+// Annual average sunlit fraction — Dawn-dusk SSO
+function ssoAnnualAvg(alt) {
+  const inc = ssoIncRad(alt), rho = rhoRad(alt);
+  let total = 0;
+  for (let d = 0; d < 365; d++) {
+    total += sunlitFrac(ssoBetaRad(inc, sunDecl(d)), rho);
+  }
+  return total / 365;
+}
+
+// Annual average sunlit fraction — Noon-midnight SSO
+function ssoNoonAnnualAvg(alt) {
+  const inc = ssoIncRad(alt), rho = rhoRad(alt);
+  let total = 0;
+  for (let d = 0; d < 365; d++) {
+    total += sunlitFrac(ssoNoonBetaRad(inc, sunDecl(d)), rho);
+  }
+  return total / 365;
+}
+
+// Annual average sunlit fraction — ISS-like (sweep RAAN since it drifts)
+function issAnnualAvg(alt) {
+  const rho = rhoRad(alt);
+  let total = 0, count = 0;
+  for (let d = 0; d < 365; d++) {
+    const decl = sunDecl(d);
+    for (let p = 0; p < 360; p += 10) {
+      total += sunlitFrac(issBetaRad(51.6, p, decl), rho);
+      count++;
+    }
+  }
+  return total / count;
+}
+
+// Max eclipse duration (minutes) — Dawn-dusk SSO
+function maxEclipseMinSSO(alt) {
+  const rho = rhoRad(alt), inc = ssoIncRad(alt), per = orbPeriod(alt) / 60;
+  let maxFrac = 0;
+  for (let d = 0; d < 365; d++) {
+    const beta = ssoBetaRad(inc, sunDecl(d));
+    if (Math.abs(beta) < rho) {
+      const f = 1 - sunlitFrac(beta, rho);
+      if (f > maxFrac) maxFrac = f;
+    }
+  }
+  return maxFrac * per;
+}
+
+// Max eclipse duration — Noon-midnight SSO
+function maxEclipseMinNoon(alt) {
+  const rho = rhoRad(alt), inc = ssoIncRad(alt), per = orbPeriod(alt) / 60;
+  let maxFrac = 0;
+  for (let d = 0; d < 365; d++) {
+    const beta = ssoNoonBetaRad(inc, sunDecl(d));
+    if (Math.abs(beta) < rho) {
+      const f = 1 - sunlitFrac(beta, rho);
+      if (f > maxFrac) maxFrac = f;
+    }
+  }
+  return maxFrac * per;
+}
+
+// Max eclipse — ISS-like
+function maxEclipseMinISS(alt) {
+  const rho = rhoRad(alt), per = orbPeriod(alt) / 60;
+  let maxFrac = 0;
+  for (let d = 0; d < 365; d++) {
+    const decl = sunDecl(d);
+    for (let p = 0; p < 360; p += 10) {
+      const beta = issBetaRad(51.6, p, decl);
+      if (Math.abs(beta) < rho) {
+        const f = 1 - sunlitFrac(beta, rho);
+        if (f > maxFrac) maxFrac = f;
+      }
+    }
+  }
+  return maxFrac * per;
+}
+
+// Find eclipse-free altitude for dawn-dusk SSO
+function findFullSunAlt() {
+  for (let a = 200; a <= 3000; a += 5) {
+    const rho = rhoRad(a), inc = ssoIncRad(a);
+    const b1 = Math.abs(Math.asin(Math.sin(inc + 23.5 * DEG)));
+    const b2 = Math.abs(Math.asin(Math.sin(inc - 23.5 * DEG)));
+    if (Math.min(b1, b2) >= rho) return a;
+  }
+  return null;
+}
+const FULL_SUN_ALT = findFullSunAlt();
+
+// ═══════════════════════════════════════════════════════════════
+//  DEBRIS MODEL — NASA90 analytical (SPENVIS) + empirical calibration
+// ═══════════════════════════════════════════════════════════════
+
+// NASA90 base model: cumulative flux for debris >= d_cm
+// Returns impacts/m²/year
+function nasa90Flux(d_cm, h_km, inc_deg, year, solarF107) {
+  const S = solarF107 || 110;
+
+  // Size distribution (cumulative)
+  const F1 = 1.22e-5 * Math.pow(d_cm, -2.5);
+  const F2 = 8.1e10 * Math.pow(d_cm + 700, -6);
+
+  // Altitude factor
+  const phi1 = Math.pow(10, h_km / 200 - S / 140 - 1.5);
+  const phi = phi1 / (1 + phi1);
+
+  // Inclination factor (interpolated from SPENVIS table)
+  const psiTable = [
+    [0, 0.91], [28.5, 0.91], [50, 1.0], [60, 1.07],
+    [70, 1.2], [80, 1.4], [90, 1.6], [100, 1.78]
+  ];
+  let psi = 1.0;
+  for (let j = 0; j < psiTable.length - 1; j++) {
+    if (inc_deg >= psiTable[j][0] && inc_deg <= psiTable[j + 1][0]) {
+      const frac = (inc_deg - psiTable[j][0]) / (psiTable[j + 1][0] - psiTable[j][0]);
+      psi = psiTable[j][1] + frac * (psiTable[j + 1][1] - psiTable[j][1]);
+      break;
+    }
+  }
+  if (inc_deg > 100) psi = 1.78;
+
+  // Time growth factors
+  // q increased post-2011 to reflect accelerating debris generation
+  const q = (year > 2011) ? 0.04 : 0.02;
+  const p = 0.05;
+  const g1 = Math.pow(1 + q, year - 1988);
+  const g2 = 1 + p * (year - 1988);
+
+  return phi * psi * (F1 * g1 + F2 * g2);
+}
+
+// Empirical calibration multiplier by altitude
+// The NASA90 model underestimates current debris because it pre-dates:
+// - Fengyun-1C ASAT test (2007): +25% tracked population, concentrated at 850 km
+// - Iridium-Cosmos collision (2009): +2300 trackable fragments at ~780 km
+// - Cosmos 1408 ASAT test (2021): fragments at ~500 km
+// This correction factor adjusts the altitude profile shape to match ORDEM 3.2 / MASTER-8 data
+function empiricalCalibration(h_km) {
+  // Relative spatial density anchored to known data points
+  // Sources: National Academies (50x ratio 300km vs 1000km), HAX radar (10x ratio low-alt vs 900km),
+  // ORDEM 3.2 (800-900km peak), ESA MASTER-8 (population distribution)
+  const anchors = [
+    [200, 0.01], [300, 0.02], [400, 0.05], [500, 0.10],
+    [600, 0.25], [700, 0.60], [750, 0.85], [800, 1.00],
+    [850, 1.05], [900, 0.95], [1000, 0.80], [1100, 0.50],
+    [1200, 0.30], [1400, 0.40], [1500, 0.35], [1800, 0.10], [2000, 0.05]
+  ];
+
+  // Interpolate
+  if (h_km <= anchors[0][0]) return anchors[0][1];
+  if (h_km >= anchors[anchors.length - 1][0]) return anchors[anchors.length - 1][1];
+  for (let i = 0; i < anchors.length - 1; i++) {
+    if (h_km >= anchors[i][0] && h_km <= anchors[i + 1][0]) {
+      const frac = (h_km - anchors[i][0]) / (anchors[i + 1][0] - anchors[i][0]);
+      return anchors[i][1] + frac * (anchors[i + 1][1] - anchors[i][1]);
+    }
+  }
+  return 0.05;
+}
+
+// Combined debris flux with empirical correction
+// Uses NASA90 for size/time/inclination scaling, empirical for altitude profile shape
+function debrisFlux(d_cm, h_km, inc_deg, year, solarF107) {
+  const raw = nasa90Flux(d_cm, h_km, inc_deg, year, solarF107);
+  const cal = empiricalCalibration(h_km);
+  // Normalize: NASA90 at 800km is the reference, scale everything by empirical shape
+  const ref = nasa90Flux(d_cm, 800, inc_deg, year, solarF107);
+  if (ref < 1e-30) return 0;
+  return raw * (cal / (empiricalCalibration(800))) ;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  ATMOSPHERIC DRAG MODEL
+// ═══════════════════════════════════════════════════════════════
+
+// NRLMSISE-00 tabulated atmospheric density (kg/m³) at key altitudes
+// for solar minimum (F10.7 ≈ 70) and solar maximum (F10.7 ≈ 140)
+// Source: NRLMSISE-00 model runs, widely published reference values
+const densityTable = {
+  // [altitude_km]: [solar_min_kg_m3, solar_max_kg_m3]
+  200: [2.5e-10, 4.0e-10],
+  250: [7.0e-11, 1.5e-10],
+  300: [2.0e-11, 6.0e-11],
+  350: [6.0e-12, 2.5e-11],
+  400: [2.0e-12, 1.0e-11],
+  450: [7.0e-13, 5.0e-12],
+  500: [2.5e-13, 2.5e-12],
+  550: [1.0e-13, 1.3e-12],
+  600: [4.0e-14, 7.0e-13],
+  650: [1.5e-14, 3.5e-13],
+  700: [6.0e-15, 1.8e-13],
+  750: [2.5e-15, 9.0e-14],
+  800: [1.0e-15, 5.0e-14],
+  900: [2.0e-16, 1.5e-14],
+  1000: [5.0e-17, 5.0e-15],
+  1200: [5.0e-18, 6.0e-16],
+  1500: [5.0e-19, 8.0e-17],
+  2000: [5.0e-20, 1.0e-17],
+};
+
+// Log-interpolate density at arbitrary altitude
+function atmDensity(alt_km, solarCycle) {
+  const keys = Object.keys(densityTable).map(Number).sort((a, b) => a - b);
+  const idx = solarCycle === 'min' ? 0 : solarCycle === 'max' ? 1 : -1;
+
+  function getDensity(alt) {
+    if (alt <= keys[0]) {
+      const vals = densityTable[keys[0]];
+      return idx >= 0 ? vals[idx] : Math.sqrt(vals[0] * vals[1]);
+    }
+    if (alt >= keys[keys.length - 1]) {
+      const vals = densityTable[keys[keys.length - 1]];
+      return idx >= 0 ? vals[idx] : Math.sqrt(vals[0] * vals[1]);
+    }
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (alt >= keys[i] && alt <= keys[i + 1]) {
+        const v0 = densityTable[keys[i]];
+        const v1 = densityTable[keys[i + 1]];
+        const frac = (alt - keys[i]) / (keys[i + 1] - keys[i]);
+        const d0 = idx >= 0 ? v0[idx] : Math.sqrt(v0[0] * v0[1]);
+        const d1 = idx >= 0 ? v1[idx] : Math.sqrt(v1[0] * v1[1]);
+        // Log interpolation
+        return Math.exp(Math.log(d0) + frac * (Math.log(d1) - Math.log(d0)));
+      }
+    }
+    return 1e-20;
+  }
+
+  if (solarCycle === 'avg') {
+    // Geometric mean of min and max
+    const dMin = getDensity(alt_km);
+    return dMin; // already computed as geometric mean above
+  }
+  return getDensity(alt_km);
+}
+
+// Station-keeping ΔV per year (m/s/year)
+// F_drag = ½ρv²C_d*A
+// a_drag = F_drag / m = ½ρv²C_d*(A/m)
+// ΔV/year = a_drag * seconds_per_year
+function stationKeepingDV(alt_km, area_m2, massPerM2, solarCycle) {
+  const Cd = 2.2; // drag coefficient, flat plate
+  const rho = atmDensity(alt_km, solarCycle); // kg/m³
+  const v = orbVelocity(alt_km) * 1000; // m/s
+  const totalMass = area_m2 * massPerM2; // kg
+  const areaToMass = area_m2 / totalMass; // m²/kg = 1/massPerM2
+
+  const aDrag = 0.5 * rho * v * v * Cd * areaToMass; // m/s²
+  const secPerYear = 365.25 * 86400;
+  return aDrag * secPerYear; // m/s/year
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CHART GENERATION
+// ═══════════════════════════════════════════════════════════════
+
+const plotLayout = {
+  paper_bgcolor: '#161b22',
+  plot_bgcolor: '#0d1117',
+  font: { family: '-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif', color: '#e6edf3', size: 11 },
+  margin: { l: 60, r: 30, t: 10, b: 50 },
+  legend: { bgcolor: 'rgba(22,27,34,0.8)', bordercolor: '#30363d', borderwidth: 1, font: { size: 10 } },
+  xaxis: { gridcolor: '#21262d', zerolinecolor: '#30363d' },
+  yaxis: { gridcolor: '#21262d', zerolinecolor: '#30363d' },
+};
+
+const altitudes = [];
+for (let a = 200; a <= 2000; a += 10) altitudes.push(a);
+
+function getState() {
+  return {
+    year: parseInt(document.getElementById('year-slider').value),
+    solarCycle: document.getElementById('solar-cycle').value,
+    orbitType: document.getElementById('orbit-type').value,
+    area: parseFloat(document.getElementById('area-slider').value),
+    massPerM2: parseFloat(document.getElementById('mass-slider').value),
+    solarF107: { min: 70, avg: 110, max: 140 }[document.getElementById('solar-cycle').value],
+  };
+}
+
+function updateSunshine() {
+  const s = getState();
+  const traces = [];
+
+  // Dawn-dusk SSO
+  if (s.orbitType === 'sso-dd' || s.orbitType === 'all') {
+    const sunlit = altitudes.map(a => ssoAnnualAvg(a) * 100);
+    const eclipse = altitudes.map(a => maxEclipseMinSSO(a));
+    traces.push({
+      x: altitudes, y: sunlit, name: 'Dawn-Dusk SSO (sunlit %)',
+      line: { color: '#3fb950', width: 2 }, yaxis: 'y'
+    });
+    traces.push({
+      x: altitudes, y: eclipse, name: 'Max eclipse (min)',
+      line: { color: '#f85149', width: 1.5, dash: 'dash' }, yaxis: 'y2'
+    });
+  }
+
+  // Noon-midnight SSO
+  if (s.orbitType === 'sso-noon' || s.orbitType === 'all') {
+    const sunlit = altitudes.map(a => ssoNoonAnnualAvg(a) * 100);
+    const eclipse = altitudes.map(a => maxEclipseMinNoon(a));
+    traces.push({
+      x: altitudes, y: sunlit, name: 'Noon-Midnight SSO (sunlit %)',
+      line: { color: '#d29922', width: 2 }, yaxis: 'y'
+    });
+    if (s.orbitType === 'sso-noon') {
+      traces.push({
+        x: altitudes, y: eclipse, name: 'Max eclipse (min)',
+        line: { color: '#f85149', width: 1.5, dash: 'dash' }, yaxis: 'y2'
+      });
+    }
+  }
+
+  // ISS-like
+  if (s.orbitType === 'iss' || s.orbitType === 'all') {
+    const sunlit = altitudes.map(a => issAnnualAvg(a) * 100);
+    const eclipse = altitudes.map(a => maxEclipseMinISS(a));
+    traces.push({
+      x: altitudes, y: sunlit, name: 'ISS-like 51.6° (sunlit %)',
+      line: { color: '#58a6ff', width: 2 }, yaxis: 'y'
+    });
+    if (s.orbitType === 'iss') {
+      traces.push({
+        x: altitudes, y: eclipse, name: 'Max eclipse (min)',
+        line: { color: '#f85149', width: 1.5, dash: 'dash' }, yaxis: 'y2'
+      });
+    }
+  }
+
+  const layout = {
+    ...plotLayout,
+    xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
+    yaxis: { ...plotLayout.yaxis, title: 'Annual Sunlit Fraction (%)', range: [50, 101] },
+    yaxis2: { title: 'Max Eclipse (min)', overlaying: 'y', side: 'right', range: [0, 40],
+              gridcolor: 'rgba(248,81,73,0.1)', titlefont: { color: '#f85149' }, tickfont: { color: '#f85149' } },
+    shapes: FULL_SUN_ALT ? [{
+      type: 'line', x0: FULL_SUN_ALT, x1: FULL_SUN_ALT, y0: 0, y1: 1, yref: 'paper',
+      line: { color: '#3fb950', width: 1, dash: 'dot' }
+    }] : [],
+    annotations: FULL_SUN_ALT ? [{
+      x: FULL_SUN_ALT, y: 1.02, yref: 'paper', text: `Eclipse-free: ${FULL_SUN_ALT} km`,
+      showarrow: false, font: { size: 10, color: '#3fb950' }
+    }] : [],
+  };
+
+  Plotly.react('chart-sunshine', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function updateDebris() {
+  const s = getState();
+
+  // Determine inclination based on orbit type
+  let inc = 98; // SSO typical
+  if (s.orbitType === 'iss') inc = 51.6;
+
+  // 3 size classes
+  const sizes = [
+    { d: 0.1, name: '≥ 1mm (surface pitting)', color: '#d29922' },
+    { d: 1.0, name: '≥ 1cm (panel penetration)', color: '#f85149' },
+    { d: 10, name: '≥ 10cm (catastrophic)', color: '#bc8cff' },
+  ];
+
+  const traces = sizes.map(sz => ({
+    x: altitudes,
+    y: altitudes.map(a => debrisFlux(sz.d, a, inc, s.year, s.solarF107)),
+    name: sz.name,
+    line: { color: sz.color, width: 2 },
+  }));
+
+  // Add shieldable threshold annotation
+  const layout = {
+    ...plotLayout,
+    xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
+    yaxis: { ...plotLayout.yaxis, title: 'Flux (impacts/m²/year)', type: 'log',
+             exponentformat: 'power' },
+    annotations: [
+      { x: 850, y: Math.log10(debrisFlux(1.0, 850, inc, s.year, s.solarF107)),
+        text: 'Peak debris zone', showarrow: true, arrowhead: 2,
+        font: { size: 10, color: '#f85149' }, arrowcolor: '#f85149',
+        ax: 40, ay: -30 },
+    ],
+  };
+
+  Plotly.react('chart-debris', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function updateDrag() {
+  const s = getState();
+  const traces = [];
+
+  // Solar min
+  const dvMin = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, 'min'));
+  traces.push({
+    x: altitudes, y: dvMin, name: 'Solar Minimum',
+    line: { color: '#58a6ff', width: 2 },
+  });
+
+  // Solar max
+  const dvMax = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, 'max'));
+  traces.push({
+    x: altitudes, y: dvMax, name: 'Solar Maximum',
+    line: { color: '#f85149', width: 2 },
+  });
+
+  // Average
+  const dvAvg = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, 'avg'));
+  traces.push({
+    x: altitudes, y: dvAvg, name: 'Average',
+    line: { color: '#d29922', width: 2, dash: 'dash' },
+  });
+
+  // Hall thruster practical limit (~300 m/s/year with reasonable propellant budget)
+  traces.push({
+    x: [200, 2000], y: [300, 300], name: 'Hall thruster practical limit',
+    line: { color: '#3fb950', width: 1, dash: 'dot' }, mode: 'lines',
+  });
+
+  const layout = {
+    ...plotLayout,
+    xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
+    yaxis: { ...plotLayout.yaxis, title: 'Station-keeping ΔV (m/s/year)', type: 'log',
+             exponentformat: 'power', range: [-3, 6] },
+    annotations: [{
+      x: 500, y: Math.log10(300), text: '~300 m/s/yr Hall thruster limit',
+      showarrow: false, font: { size: 10, color: '#3fb950' }, yshift: 12,
+    }],
+  };
+
+  Plotly.react('chart-drag', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function updateCombined() {
+  const s = getState();
+
+  let inc = 98;
+  if (s.orbitType === 'iss') inc = 51.6;
+
+  // Compute raw values
+  const sunlitData = altitudes.map(a => {
+    if (s.orbitType === 'iss') return issAnnualAvg(a);
+    if (s.orbitType === 'sso-noon') return ssoNoonAnnualAvg(a);
+    return ssoAnnualAvg(a);
+  });
+
+  const debrisData = altitudes.map(a => debrisFlux(1.0, a, inc, s.year, s.solarF107));
+  const dragData = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, s.solarCycle));
+
+  // Normalize each to 0-1 where 0 = best, 1 = worst
+  // Sunshine penalty: (1 - sunlit_fraction) — 0 means 100% sunlit
+  const sunPenalty = sunlitData.map(v => 1 - v);
+
+  // Debris penalty: log-normalized between min and max
+  const debrisLog = debrisData.map(v => Math.log10(Math.max(v, 1e-20)));
+  const debrisMin = Math.min(...debrisLog.filter(v => v > -19));
+  const debrisMax = Math.max(...debrisLog);
+  const debrisPenalty = debrisLog.map(v => v <= -19 ? 0 : (v - debrisMin) / (debrisMax - debrisMin));
+
+  // Drag penalty: log-normalized
+  const dragLog = dragData.map(v => Math.log10(Math.max(v, 1e-10)));
+  const dragMin = Math.min(...dragLog.filter(v => v > -9));
+  const dragMax = Math.max(...dragLog);
+  const dragPenalty = dragLog.map(v => v <= -9 ? 0 : (v - dragMin) / (dragMax - dragMin));
+
+  // Combined penalty (geometric mean — all factors contribute)
+  const combined = altitudes.map((_, i) => {
+    return (sunPenalty[i] + debrisPenalty[i] + dragPenalty[i]) / 3;
+  });
+
+  // Find best altitude (minimum combined penalty)
+  let bestIdx = 0, bestVal = Infinity;
+  for (let i = 0; i < combined.length; i++) {
+    if (combined[i] < bestVal) { bestVal = combined[i]; bestIdx = i; }
+  }
+
+  const traces = [
+    { x: altitudes, y: sunPenalty, name: 'Eclipse penalty', line: { color: '#d29922', width: 1.5 }, fill: 'tozeroy', fillcolor: 'rgba(210,153,34,0.05)' },
+    { x: altitudes, y: debrisPenalty, name: 'Debris penalty', line: { color: '#f85149', width: 1.5 }, fill: 'tozeroy', fillcolor: 'rgba(248,81,73,0.05)' },
+    { x: altitudes, y: dragPenalty, name: 'Drag penalty', line: { color: '#58a6ff', width: 1.5 }, fill: 'tozeroy', fillcolor: 'rgba(88,166,255,0.05)' },
+    { x: altitudes, y: combined, name: 'Combined (avg)', line: { color: '#3fb950', width: 3 } },
+  ];
+
+  const layout = {
+    ...plotLayout,
+    xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
+    yaxis: { ...plotLayout.yaxis, title: 'Penalty (0=best, 1=worst)', range: [-0.05, 1.05] },
+    shapes: [{
+      type: 'rect', x0: altitudes[bestIdx] - 50, x1: altitudes[bestIdx] + 50,
+      y0: 0, y1: 1, yref: 'paper',
+      fillcolor: 'rgba(63,185,80,0.08)', line: { color: 'rgba(63,185,80,0.3)', width: 1 }
+    }],
+    annotations: [{
+      x: altitudes[bestIdx], y: -0.08, yref: 'y', text: `Best: ${altitudes[bestIdx]} km`,
+      showarrow: false, font: { size: 11, color: '#3fb950', weight: 'bold' }
+    }],
+  };
+
+  Plotly.react('chart-combined', traces, layout, { responsive: true, displayModeBar: false });
+
+  // Update summary bar
+  updateSummary(altitudes[bestIdx], s);
+}
+
+function updateSummary(bestAlt, s) {
+  let sunlit, eclipse;
+  if (s.orbitType === 'iss') {
+    sunlit = issAnnualAvg(bestAlt);
+    eclipse = maxEclipseMinISS(bestAlt);
+  } else if (s.orbitType === 'sso-noon') {
+    sunlit = ssoNoonAnnualAvg(bestAlt);
+    eclipse = maxEclipseMinNoon(bestAlt);
+  } else {
+    sunlit = ssoAnnualAvg(bestAlt);
+    eclipse = maxEclipseMinSSO(bestAlt);
+  }
+
+  const inc = s.orbitType === 'iss' ? 51.6 : 98;
+  const flux1cm = debrisFlux(1.0, bestAlt, inc, s.year, s.solarF107);
+  const dv = stationKeepingDV(bestAlt, s.area, s.massPerM2, s.solarCycle);
+  const batteryWhPerKw = eclipse < 0.1 ? 0 : (SOLAR_CONST * sunlit) * (eclipse / 60);
+
+  const bar = document.getElementById('summary-bar');
+  bar.innerHTML = `
+    <div class="summary-item">
+      <span class="label">Optimal Altitude</span>
+      <span class="value good">${bestAlt} km</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Sunlit Fraction</span>
+      <span class="value ${sunlit > 0.99 ? 'good' : sunlit > 0.9 ? 'warn' : 'bad'}">${(sunlit * 100).toFixed(1)}%</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Max Eclipse</span>
+      <span class="value ${eclipse < 0.1 ? 'good' : eclipse < 10 ? 'warn' : 'bad'}">${eclipse < 0.1 ? 'None' : eclipse.toFixed(1) + ' min'}</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Battery Need</span>
+      <span class="value ${batteryWhPerKw < 1 ? 'good' : batteryWhPerKw < 100 ? 'warn' : 'bad'}">${batteryWhPerKw < 1 ? '0' : batteryWhPerKw.toFixed(0)} Wh/kW</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Debris Flux (≥1cm)</span>
+      <span class="value ${flux1cm < 1e-5 ? 'good' : flux1cm < 1e-4 ? 'warn' : 'bad'}">${flux1cm.toExponential(1)} /m²/yr</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Station-keeping ΔV</span>
+      <span class="value ${dv < 50 ? 'good' : dv < 300 ? 'warn' : 'bad'}">${dv < 0.01 ? '< 0.01' : dv < 10 ? dv.toFixed(2) : dv.toFixed(0)} m/s/yr</span>
+    </div>
+    <div class="summary-item">
+      <span class="label">Year</span>
+      <span class="value">${s.year}</span>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INITIALIZATION & EVENTS
+// ═══════════════════════════════════════════════════════════════
+
+function updateAll() {
+  updateSunshine();
+  updateDebris();
+  updateDrag();
+  updateCombined();
+}
+
+// Slider value displays
+document.getElementById('year-slider').addEventListener('input', e => {
+  document.getElementById('year-val').textContent = e.target.value;
+  updateDebris();
+  updateCombined();
+});
+
+document.getElementById('area-slider').addEventListener('input', e => {
+  document.getElementById('area-val').textContent = parseInt(e.target.value).toLocaleString();
+  updateDrag();
+  updateCombined();
+});
+
+document.getElementById('mass-slider').addEventListener('input', e => {
+  document.getElementById('mass-val').textContent = parseFloat(e.target.value).toFixed(1);
+  updateDrag();
+  updateCombined();
+});
+
+document.getElementById('solar-cycle').addEventListener('change', () => {
+  updateDebris();
+  updateDrag();
+  updateCombined();
+});
+
+document.getElementById('orbit-type').addEventListener('change', () => {
+  updateAll();
+});
+
+// Initial render
+updateAll();
+</script>
+</body>
+</html>

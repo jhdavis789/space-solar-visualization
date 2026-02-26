@@ -95,7 +95,12 @@ canvas{display:block}
 #atm-info code,#wx-info code{font-family:'SF Mono',Consolas,monospace;background:rgba(255,255,255,.05);padding:1px 4px;border-radius:2px;color:#dde;font-size:.6rem}
 #atm-info .warn,#wx-info .warn{color:#fa5}
 .label3d{color:#aab;font-size:10px;pointer-events:none;white-space:nowrap;text-shadow:0 0 5px rgba(0,0,0,.9),0 0 10px rgba(0,0,0,.7)}
-@media(max-width:800px){#lctrl{width:140px}#dashboard{width:170px}.vb,.stb{font-size:.62rem;padding:4px 7px}}
+.page-nav{display:flex;gap:3px;align-items:center;margin-left:10px}
+.page-nav a{color:#999;text-decoration:none;font-size:.65rem;padding:3px 8px;border-radius:4px;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.page-nav a:hover{color:#ccc;border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.07)}
+.page-nav a.active{color:#6cf;border-color:rgba(100,200,255,.35);background:rgba(100,200,255,.1)}
+.page-nav .sep{color:rgba(255,255,255,.12);font-size:.5rem;user-select:none}
+@media(max-width:800px){#lctrl{width:140px}#dashboard{width:170px}.vb,.stb{font-size:.62rem;padding:4px 7px}.page-nav{display:none}}
 </style>
 </head>
 <body>
@@ -103,7 +108,15 @@ canvas{display:block}
   <div id="topbar">
     <div id="sat-toggle"><button class="stb active" data-sat="sso">Solar Array (SSO)</button><button class="stb" data-sat="iss">ISS</button></div>
     <div id="title"><h1>Earth, Orbits & the Sun</h1><div class="sub">3D to-scale model — drag to orbit, scroll to zoom</div></div>
-    <div id="view-buttons"><button class="vb active" data-v="leo">LEO & Earth</button><button class="vb" data-v="sunpov">Sun's POV</button><button class="vb" data-v="compare">LEO vs GEO</button><button class="vb" data-v="solar">Earth–Sun Dist.</button></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <div id="view-buttons"><button class="vb active" data-v="leo">LEO & Earth</button><button class="vb" data-v="sunpov">Sun's POV</button><button class="vb" data-v="compare">LEO vs GEO</button><button class="vb" data-v="solar">Earth–Sun Dist.</button></div>
+      <nav class="page-nav">
+        <span class="sep">|</span>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="altitude-selection.html">Altitude</a>
+        <a href="Altitude vs Sun.html" class="active">3D Viz</a>
+      </nav>
+    </div>
   </div>
   <div id="middle">
     <div id="lctrl">
