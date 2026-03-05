@@ -109,6 +109,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
     <input type="range" id="mass-slider" min="0.1" max="5" step="0.1" value="1.0">
     <span class="val" id="mass-val">1.0</span>
   </div>
+  <div class="ctrl-group">
+    <label>Atmosphere:</label>
+    <button id="atmos-on" class="atmos-btn active" style="font-size:.72rem;padding:3px 8px;border-radius:4px 0 0 4px;border:1px solid var(--border);background:rgba(63,185,80,.15);color:var(--green);cursor:pointer">ON</button><button id="atmos-off" class="atmos-btn" style="font-size:.72rem;padding:3px 8px;border-radius:0 4px 4px 0;border:1px solid var(--border);border-left:0;background:var(--bg3);color:var(--text2);cursor:pointer">OFF</button>
+  </div>
 </div>
 
 <div class="summary-bar" id="summary-bar"></div>
@@ -305,6 +309,101 @@ function findFullSunAlt() {
   return null;
 }
 const FULL_SUN_ALT = findFullSunAlt();
+
+// ═══════════════════════════════════════════════════════════════
+//  ATMOSPHERE LIMB MODEL (ported from Altitude vs Sun.html)
+//  Near shadow boundary, sunlight grazes Earth's atmosphere.
+//  Tangent height → Chapman air mass → Meinel transmittance.
+// ═══════════════════════════════════════════════════════════════
+const H_SCALE = 8.5; // km, atmospheric scale height
+
+// Sun direction unit vector for a given declination
+function getSunDir(declDeg) {
+  return { x: Math.cos(declDeg * DEG), y: Math.sin(declDeg * DEG), z: 0 };
+}
+
+// Flux (W/m²) at orbital position with atmospheric penumbra
+// px,py,pz in Earth-radii; sd = sun direction unit vector
+function spaceFluxAtAtmos(px, py, pz, sd) {
+  const dot = px * sd.x + py * sd.y + pz * sd.z;
+  if (dot >= 0) return SOLAR_CONST; // sun-side
+  const cx = py * sd.z - pz * sd.y;
+  const cy = pz * sd.x - px * sd.z;
+  const cz = px * sd.y - py * sd.x;
+  const htKm = (Math.sqrt(cx*cx + cy*cy + cz*cz) - 1) * Re;
+  if (htKm < 0) return 0;
+  if (htKm > 150) return SOLAR_CONST;
+  const am = Math.exp(-htKm / H_SCALE) * Math.sqrt(2 * Math.PI * (Re + htKm) / H_SCALE);
+  if (am < 1e-4) return SOLAR_CONST;
+  return SOLAR_CONST * Math.pow(0.7, Math.pow(am, 0.678));
+}
+
+// Day-average flux via orbit integration (120 points per orbit)
+function spaceDayFluxAtmos(alt, incR, raanR, declDeg) {
+  const sd = getSunDir(declDeg);
+  const r = 1 + alt / Re;
+  const N = 120;
+  const ci = Math.cos(incR), si = Math.sin(incR);
+  const co = Math.cos(raanR), so = Math.sin(raanR);
+  let tot = 0;
+  for (let j = 0; j < N; j++) {
+    const th = j / N * Math.PI * 2;
+    const x1 = r * Math.cos(th), z1 = r * Math.sin(th);
+    const y2 = -z1 * si, z2 = z1 * ci;
+    tot += spaceFluxAtAtmos(x1*co + z2*so, y2, -x1*so + z2*co, sd);
+  }
+  return tot / N;
+}
+
+// Annual average with atmosphere — Dawn-dusk SSO (RAAN = 90° from sun)
+function ssoAnnualAvgAtmos(alt) {
+  const inc = ssoIncRad(alt), raan = 90 * DEG;
+  let total = 0;
+  for (let w = 0; w < 52; w++) total += spaceDayFluxAtmos(alt, inc, raan, sunDecl(w * 7));
+  return total / 52 / SOLAR_CONST;
+}
+
+// Annual average with atmosphere — Noon-midnight SSO (RAAN = 0)
+function ssoNoonAnnualAvgAtmos(alt) {
+  const inc = ssoIncRad(alt), raan = 0;
+  let total = 0;
+  for (let w = 0; w < 52; w++) total += spaceDayFluxAtmos(alt, inc, raan, sunDecl(w * 7));
+  return total / 52 / SOLAR_CONST;
+}
+
+// Annual average with atmosphere — ISS-like (sweep RAAN)
+function issAnnualAvgAtmos(alt) {
+  let total = 0, count = 0;
+  for (let w = 0; w < 52; w++) {
+    const decl = sunDecl(w * 7);
+    for (let p = 0; p < 360; p += 30) {
+      total += spaceDayFluxAtmos(alt, 51.6 * DEG, p * DEG, decl);
+      count++;
+    }
+  }
+  return total / count / SOLAR_CONST;
+}
+
+// Cache for atmosphere-aware annual averages (deterministic, never needs clearing)
+const _atmosCache = {};
+function getAnnualAvg(type, alt, atmosOn) {
+  if (!atmosOn) {
+    if (type === 'iss') return issAnnualAvg(alt);
+    if (type === 'sso-noon') return ssoNoonAnnualAvg(alt);
+    return ssoAnnualAvg(alt);
+  }
+  const key = type + '-' + alt;
+  if (_atmosCache[key] !== undefined) return _atmosCache[key];
+  let v;
+  if (type === 'iss') v = issAnnualAvgAtmos(alt);
+  else if (type === 'sso-noon') v = ssoNoonAnnualAvgAtmos(alt);
+  else v = ssoAnnualAvgAtmos(alt);
+  _atmosCache[key] = v;
+  return v;
+}
+
+let atmosOn = true; // default: atmosphere ON
+let optimalAlt = 500; // computed by updateCombined
 
 // ═══════════════════════════════════════════════════════════════
 //  DEBRIS MODEL — NASA90 analytical (SPENVIS) + empirical calibration
@@ -504,7 +603,7 @@ function updateSunshine() {
 
   // Dawn-dusk SSO
   if (s.orbitType === 'sso-dd' || s.orbitType === 'all') {
-    const sunlit = altitudes.map(a => ssoAnnualAvg(a) * 100);
+    const sunlit = altitudes.map(a => getAnnualAvg('sso-dd', a, atmosOn) * 100);
     const eclipse = altitudes.map(a => maxEclipseMinSSO(a));
     traces.push({
       x: altitudes, y: sunlit, name: 'Dawn-Dusk SSO (sunlit %)',
@@ -518,7 +617,7 @@ function updateSunshine() {
 
   // Noon-midnight SSO
   if (s.orbitType === 'sso-noon' || s.orbitType === 'all') {
-    const sunlit = altitudes.map(a => ssoNoonAnnualAvg(a) * 100);
+    const sunlit = altitudes.map(a => getAnnualAvg('sso-noon', a, atmosOn) * 100);
     const eclipse = altitudes.map(a => maxEclipseMinNoon(a));
     traces.push({
       x: altitudes, y: sunlit, name: 'Noon-Midnight SSO (sunlit %)',
@@ -534,7 +633,7 @@ function updateSunshine() {
 
   // ISS-like
   if (s.orbitType === 'iss' || s.orbitType === 'all') {
-    const sunlit = altitudes.map(a => issAnnualAvg(a) * 100);
+    const sunlit = altitudes.map(a => getAnnualAvg('iss', a, atmosOn) * 100);
     const eclipse = altitudes.map(a => maxEclipseMinISS(a));
     traces.push({
       x: altitudes, y: sunlit, name: 'ISS-like 51.6° (sunlit %)',
@@ -548,20 +647,43 @@ function updateSunshine() {
     }
   }
 
+  const shapes = FULL_SUN_ALT ? [{
+    type: 'line', x0: FULL_SUN_ALT, x1: FULL_SUN_ALT, y0: 0, y1: 1, yref: 'paper',
+    line: { color: '#3fb950', width: 1, dash: 'dot' }
+  }] : [];
+  const annotations = FULL_SUN_ALT ? [{
+    x: FULL_SUN_ALT, y: 1.02, yref: 'paper', text: `Eclipse-free: ${FULL_SUN_ALT} km`,
+    showarrow: false, font: { size: 10, color: '#3fb950' }
+  }] : [];
+
+  // Optimal altitude marker from combined chart
+  if (optimalAlt !== null) {
+    const effectiveOrbit = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
+    const optSunlit = getAnnualAvg(effectiveOrbit, optimalAlt, atmosOn) * 100;
+    traces.push({
+      x: [optimalAlt], y: [optSunlit],
+      name: `Optimal: ${optimalAlt} km → ${optSunlit.toFixed(1)}%`,
+      mode: 'markers', yaxis: 'y',
+      marker: { color: '#3fb950', size: 10, symbol: 'diamond', line: { color: '#fff', width: 1 } },
+    });
+    // Horizontal line at the optimal sunlit fraction on y-axis
+    shapes.push({
+      type: 'line', x0: 0, x1: 1, xref: 'paper', y0: optSunlit, y1: optSunlit,
+      line: { color: 'rgba(63,185,80,0.4)', width: 1, dash: 'dot' }
+    });
+    annotations.push({
+      x: 0.01, xref: 'paper', y: optSunlit, text: `${optSunlit.toFixed(1)}%`,
+      showarrow: false, font: { size: 9, color: '#3fb950' }, xanchor: 'left', yshift: -10
+    });
+  }
+
   const layout = {
     ...plotLayout,
     xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
-    yaxis: { ...plotLayout.yaxis, title: 'Annual Sunlit Fraction (%)', range: [50, 101] },
+    yaxis: { ...plotLayout.yaxis, title: `Annual Sunlit Fraction (%)${atmosOn ? ' · Atmos' : ''}`, range: [50, 101] },
     yaxis2: { title: 'Max Eclipse (min)', overlaying: 'y', side: 'right', range: [0, 40],
               gridcolor: 'rgba(248,81,73,0.1)', titlefont: { color: '#f85149' }, tickfont: { color: '#f85149' } },
-    shapes: FULL_SUN_ALT ? [{
-      type: 'line', x0: FULL_SUN_ALT, x1: FULL_SUN_ALT, y0: 0, y1: 1, yref: 'paper',
-      line: { color: '#3fb950', width: 1, dash: 'dot' }
-    }] : [],
-    annotations: FULL_SUN_ALT ? [{
-      x: FULL_SUN_ALT, y: 1.02, yref: 'paper', text: `Eclipse-free: ${FULL_SUN_ALT} km`,
-      showarrow: false, font: { size: 10, color: '#3fb950' }
-    }] : [],
+    shapes, annotations,
   };
 
   Plotly.react('chart-sunshine', traces, layout, { responsive: true, displayModeBar: false });
@@ -656,12 +778,9 @@ function updateCombined() {
   let inc = 98;
   if (s.orbitType === 'iss') inc = 51.6;
 
-  // Compute raw values
-  const sunlitData = altitudes.map(a => {
-    if (s.orbitType === 'iss') return issAnnualAvg(a);
-    if (s.orbitType === 'sso-noon') return ssoNoonAnnualAvg(a);
-    return ssoAnnualAvg(a);
-  });
+  // Compute raw values (atmosphere-aware when toggled)
+  const effectiveOrbit = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
+  const sunlitData = altitudes.map(a => getAnnualAvg(effectiveOrbit, a, atmosOn));
 
   const debrisData = altitudes.map(a => debrisFlux(1.0, a, inc, s.year, s.solarF107));
   const dragData = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, s.solarCycle));
@@ -717,20 +836,22 @@ function updateCombined() {
 
   Plotly.react('chart-combined', traces, layout, { responsive: true, displayModeBar: false });
 
+  // Store optimal altitude for sunshine chart marker
+  optimalAlt = altitudes[bestIdx];
+
   // Update summary bar
   updateSummary(altitudes[bestIdx], s);
 }
 
 function updateSummary(bestAlt, s) {
-  let sunlit, eclipse;
+  const effectiveOrbit = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
+  const sunlit = getAnnualAvg(effectiveOrbit, bestAlt, atmosOn);
+  let eclipse;
   if (s.orbitType === 'iss') {
-    sunlit = issAnnualAvg(bestAlt);
     eclipse = maxEclipseMinISS(bestAlt);
   } else if (s.orbitType === 'sso-noon') {
-    sunlit = ssoNoonAnnualAvg(bestAlt);
     eclipse = maxEclipseMinNoon(bestAlt);
   } else {
-    sunlit = ssoAnnualAvg(bestAlt);
     eclipse = maxEclipseMinSSO(bestAlt);
   }
 
@@ -777,10 +898,10 @@ function updateSummary(bestAlt, s) {
 // ═══════════════════════════════════════════════════════════════
 
 function updateAll() {
+  updateCombined(); // first: computes optimalAlt used by sunshine chart
   updateSunshine();
   updateDebris();
   updateDrag();
-  updateCombined();
 }
 
 // Slider value displays
@@ -788,28 +909,55 @@ document.getElementById('year-slider').addEventListener('input', e => {
   document.getElementById('year-val').textContent = e.target.value;
   updateDebris();
   updateCombined();
+  updateSunshine(); // marker tracks optimal altitude
 });
 
 document.getElementById('area-slider').addEventListener('input', e => {
   document.getElementById('area-val').textContent = parseInt(e.target.value).toLocaleString();
   updateDrag();
   updateCombined();
+  updateSunshine();
 });
 
 document.getElementById('mass-slider').addEventListener('input', e => {
   document.getElementById('mass-val').textContent = parseFloat(e.target.value).toFixed(1);
   updateDrag();
   updateCombined();
+  updateSunshine();
 });
 
 document.getElementById('solar-cycle').addEventListener('change', () => {
   updateDebris();
   updateDrag();
   updateCombined();
+  updateSunshine();
 });
 
 document.getElementById('orbit-type').addEventListener('change', () => {
   updateAll();
+});
+
+document.getElementById('atmos-on').addEventListener('click', () => {
+  atmosOn = true;
+  document.getElementById('atmos-on').style.background = 'rgba(63,185,80,.15)';
+  document.getElementById('atmos-on').style.color = 'var(--green)';
+  document.getElementById('atmos-on').classList.add('active');
+  document.getElementById('atmos-off').style.background = 'var(--bg3)';
+  document.getElementById('atmos-off').style.color = 'var(--text2)';
+  document.getElementById('atmos-off').classList.remove('active');
+  updateCombined();
+  updateSunshine();
+});
+document.getElementById('atmos-off').addEventListener('click', () => {
+  atmosOn = false;
+  document.getElementById('atmos-off').style.background = 'rgba(248,81,73,.15)';
+  document.getElementById('atmos-off').style.color = 'var(--red)';
+  document.getElementById('atmos-off').classList.add('active');
+  document.getElementById('atmos-on').style.background = 'var(--bg3)';
+  document.getElementById('atmos-on').style.color = 'var(--text2)';
+  document.getElementById('atmos-on').classList.remove('active');
+  updateCombined();
+  updateSunshine();
 });
 
 // Initial render
