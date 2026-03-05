@@ -119,11 +119,22 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 
 <div class="grid">
   <div class="chart-card">
-    <h3>Sunshine vs Altitude <span>Annual average sunlit fraction & eclipse duration</span></h3>
+    <h3 style="display:flex;align-items:center;justify-content:space-between">
+      <span>Sunshine vs Altitude <span style="color:var(--text2);font-weight:400;font-size:.75rem;margin-left:6px">Annual average sunlit fraction & eclipse duration</span></span>
+      <label style="font-size:.72rem;font-weight:400;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px">
+        <input type="checkbox" id="earth-compare-toggle" style="accent-color:var(--purple)"> Earth Surface
+      </label>
+    </h3>
     <div class="chart-container" id="chart-sunshine"></div>
+    <div id="earth-compare-text" style="display:none;padding:8px 14px;border-top:1px solid var(--border);font-size:.78rem;color:var(--purple);font-family:var(--mono);line-height:1.7"></div>
   </div>
   <div class="chart-card">
-    <h3>Debris Flux vs Altitude <span>Collision probability by object size class</span></h3>
+    <h3 style="display:flex;align-items:center;justify-content:space-between">
+      <span>Debris Flux vs Altitude <span style="color:var(--text2);font-weight:400;font-size:.75rem;margin-left:6px">Collision probability by object size class</span></span>
+      <label style="font-size:.72rem;font-weight:400;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px">
+        <input type="checkbox" id="debris-per-gw" style="accent-color:var(--purple)"> per GW/yr
+      </label>
+    </h3>
     <div class="chart-container" id="chart-debris"></div>
   </div>
   <div class="chart-card">
@@ -404,6 +415,14 @@ function getAnnualAvg(type, alt, atmosOn) {
 
 let atmosOn = true; // default: atmosphere ON
 let optimalAlt = 500; // computed by updateCombined
+let showEarthCompare = false;
+
+// Earth surface annual-average solar as % of 1361 W/m² (AM0 solar constant)
+// Best desert (Atacama/Sahara): GHI ~2500 kWh/m²/yr = 285 W/m² → 20.9%
+// US average: ~1600 kWh/m²/yr = 183 W/m² → 13.4%
+// Global land average: ~1500 kWh/m²/yr = 171 W/m² → 12.6%
+const EARTH_BEST_PCT = 20.9;
+const EARTH_AVG_PCT = 12.6;
 
 // ═══════════════════════════════════════════════════════════════
 //  DEBRIS MODEL — NASA90 analytical (SPENVIS) + empirical calibration
@@ -657,9 +676,10 @@ function updateSunshine() {
   }] : [];
 
   // Optimal altitude marker from combined chart
+  const effectiveOrbit = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
+  let optSunlit = null;
   if (optimalAlt !== null) {
-    const effectiveOrbit = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
-    const optSunlit = getAnnualAvg(effectiveOrbit, optimalAlt, atmosOn) * 100;
+    optSunlit = getAnnualAvg(effectiveOrbit, optimalAlt, atmosOn) * 100;
     traces.push({
       x: [optimalAlt], y: [optSunlit],
       name: `Optimal: ${optimalAlt} km → ${optSunlit.toFixed(1)}%`,
@@ -677,6 +697,24 @@ function updateSunshine() {
     });
   }
 
+  // Earth surface comparison text
+  const earthEl = document.getElementById('earth-compare-text');
+  if (showEarthCompare && optSunlit !== null) {
+    const multBest = (optSunlit / EARTH_BEST_PCT).toFixed(1);
+    const multAvg = (optSunlit / EARTH_AVG_PCT).toFixed(1);
+    // Earth best desert: ~12h max night ≈ 720 min "eclipse"
+    earthEl.style.display = 'block';
+    earthEl.innerHTML =
+      `<span style="color:var(--text2)">Earth surface (0 km):</span> ` +
+      `Best desert ${EARTH_BEST_PCT}% avg (285 W/m²) · ~720 min max night` +
+      `<span style="color:var(--text3);margin:0 8px">|</span>` +
+      `Global avg ${EARTH_AVG_PCT}% (171 W/m²)` +
+      `<span style="color:var(--text3);margin:0 8px">|</span>` +
+      `<span style="color:var(--green)">Space advantage: ${multBest}× vs best desert · ${multAvg}× vs global avg</span>`;
+  } else {
+    earthEl.style.display = 'none';
+  }
+
   const layout = {
     ...plotLayout,
     xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
@@ -691,37 +729,126 @@ function updateSunshine() {
 
 function updateDebris() {
   const s = getState();
+  const perGW = document.getElementById('debris-per-gw').checked;
+
+  // At 30% efficiency: area for 1 GW = 1e9 / (1361 * 0.30) ≈ 2,449,390 m²
+  const areaPerGW = 1e9 / (1361 * 0.30);
+  const scaleFactor = perGW ? areaPerGW : 1;
 
   // Determine inclination based on orbit type
   let inc = 98; // SSO typical
   if (s.orbitType === 'iss') inc = 51.6;
 
-  // 3 size classes
+  // Mean collision velocity in LEO: ~10 km/s (NASA ORDEM reference)
+  // SSO at 98° crosses many orbit planes → slightly higher average (~10-12 km/s)
+  // Assuming aluminum debris (ρ ≈ 2.7 g/cm³), sphere mass = (π/6)d³ρ
+  // KE = ½mv² at v = 10 km/s
+  const V_COL = 10; // km/s, mean collision velocity
+  const RHO_AL = 2700; // kg/m³
+
+  // 4 size classes with damage characterization
   const sizes = [
-    { d: 0.1, name: '≥ 1mm (surface pitting)', color: '#d29922' },
-    { d: 1.0, name: '≥ 1cm (panel penetration)', color: '#f85149' },
-    { d: 10, name: '≥ 10cm (catastrophic)', color: '#bc8cff' },
+    { d: 0.01, diam: '0.1 mm', name: '≥ 0.1mm — surface pitting',
+      color: '#d29922', dash: 'dot',
+      damage: 'Paint flakes, micrometeoroid ejecta. Crater glass & coatings. Gradual efficiency loss ~0.1-0.5%/yr.',
+      shield: 'Whipple shield effective. Cover glass on cells mitigates.' },
+    { d: 0.1, diam: '1 mm', name: '≥ 1mm — panel penetration',
+      color: '#f0883e', dash: 'dash',
+      damage: 'Rivet/bolt fragments. Penetrate thin-film panels, kill individual cells. Localized damage.',
+      shield: 'Whipple shield marginal. Modular design limits propagation.' },
+    { d: 1.0, diam: '1 cm', name: '≥ 1cm — segment destruction',
+      color: '#f85149', dash: 'solid',
+      damage: 'Bolt/bracket-sized. Unshieldable at LEO velocities. Destroys entire panel segment.',
+      shield: 'TOO FAST TO SHIELD, too small to track. The deadliest gap.' },
+    { d: 10, diam: '10 cm', name: '≥ 10cm — catastrophic kill',
+      color: '#bc8cff', dash: 'solid',
+      damage: 'Wrench/panel fragment. Complete destruction of impacted structure + debris cloud.',
+      shield: 'Tracked by ground radar — avoidable via maneuver (~24h warning).' },
   ];
 
-  const traces = sizes.map(sz => ({
-    x: altitudes,
-    y: altitudes.map(a => debrisFlux(sz.d, a, inc, s.year, s.solarF107)),
-    name: sz.name,
-    line: { color: sz.color, width: 2 },
-  }));
+  // Compute mass and kinetic energy for each size class
+  sizes.forEach(sz => {
+    const d_m = sz.d * 0.01; // cm to m
+    const mass = (Math.PI / 6) * Math.pow(d_m, 3) * RHO_AL; // kg
+    const ke = 0.5 * mass * Math.pow(V_COL * 1000, 2); // Joules
+    sz.mass = mass;
+    sz.ke = ke;
+    sz.tnt_equiv = ke / 4.184e6; // kg TNT equivalent
+  });
 
-  // Add shieldable threshold annotation
+  const traces = sizes.map(sz => {
+    const rawFlux = altitudes.map(a => debrisFlux(sz.d, a, inc, s.year, s.solarF107));
+    const scaledFlux = rawFlux.map(f => f * scaleFactor);
+
+    // Build hover text with damage/energy info
+    const hoverText = altitudes.map((a, i) => {
+      const f = rawFlux[i];
+      let energyStr;
+      if (sz.ke < 1) energyStr = `${(sz.ke*1000).toFixed(1)} mJ`;
+      else if (sz.ke < 1000) energyStr = `${sz.ke.toFixed(0)} J`;
+      else if (sz.ke < 1e6) energyStr = `${(sz.ke/1000).toFixed(0)} kJ`;
+      else energyStr = `${(sz.ke/1e6).toFixed(0)} MJ`;
+
+      let tntStr = '';
+      if (sz.tnt_equiv >= 0.001) {
+        if (sz.tnt_equiv < 1) tntStr = ` (${(sz.tnt_equiv*1000).toFixed(0)}g TNT)`;
+        else tntStr = ` (${sz.tnt_equiv.toFixed(0)} kg TNT)`;
+      }
+
+      const lines = [
+        `<b>${sz.diam} debris at ${a} km</b>`,
+        `Flux: ${f.toExponential(1)}/m²/yr`,
+        perGW ? `Per GW: ${scaledFlux[i].toFixed(1)}/yr` : '',
+        ``,
+        `Impact velocity: ~${V_COL} km/s`,
+        `Kinetic energy: ${energyStr}${tntStr}`,
+        ``,
+        sz.damage,
+        sz.shield,
+      ].filter(Boolean);
+      return lines.join('<br>');
+    });
+
+    return {
+      x: altitudes,
+      y: scaledFlux,
+      name: sz.name,
+      line: { color: sz.color, width: sz.d >= 1.0 ? 2.5 : 1.8, dash: sz.dash },
+      text: hoverText,
+      hoverinfo: 'text',
+    };
+  });
+
+  // Shieldable/unshieldable boundary annotation
+  const yUnit = perGW ? 'impacts/GW/year' : 'impacts/m²/year';
+
+  const peak1cm = debrisFlux(1.0, 850, inc, s.year, s.solarF107) * scaleFactor;
+  const annotations = [
+    { x: 850, y: Math.log10(peak1cm),
+      text: 'Peak debris zone<br>(750–900 km)', showarrow: true, arrowhead: 2,
+      font: { size: 10, color: '#f85149' }, arrowcolor: '#f85149',
+      ax: 50, ay: -35 },
+  ];
+
+  // Add "unshieldable gap" bracket between 1cm and 10cm lines
+  const flux1cm_650 = debrisFlux(1.0, 650, inc, s.year, s.solarF107) * scaleFactor;
+  const flux10cm_650 = debrisFlux(10, 650, inc, s.year, s.solarF107) * scaleFactor;
+  const midY = (Math.log10(flux1cm_650) + Math.log10(flux10cm_650)) / 2;
+  annotations.push({
+    x: 450, y: midY,
+    text: '← untrackable & unshieldable',
+    showarrow: false,
+    font: { size: 9, color: '#f85149' },
+  });
+
   const layout = {
     ...plotLayout,
     xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
-    yaxis: { ...plotLayout.yaxis, title: 'Flux (impacts/m²/year)', type: 'log',
+    yaxis: { ...plotLayout.yaxis, title: yUnit, type: 'log',
              exponentformat: 'power' },
-    annotations: [
-      { x: 850, y: Math.log10(debrisFlux(1.0, 850, inc, s.year, s.solarF107)),
-        text: 'Peak debris zone', showarrow: true, arrowhead: 2,
-        font: { size: 10, color: '#f85149' }, arrowcolor: '#f85149',
-        ax: 40, ay: -30 },
-    ],
+    annotations,
+    legend: { ...plotLayout.legend, x: 0.01, y: 0.01, xanchor: 'left', yanchor: 'bottom',
+              font: { size: 10 } },
   };
 
   Plotly.react('chart-debris', traces, layout, { responsive: true, displayModeBar: false });
@@ -881,6 +1008,8 @@ function updateSummary(bestAlt, s) {
     <div class="summary-item">
       <span class="label">Debris Flux (≥1cm)</span>
       <span class="value ${flux1cm < 1e-5 ? 'good' : flux1cm < 1e-4 ? 'warn' : 'bad'}">${flux1cm.toExponential(1)} /m²/yr</span>
+      ${document.getElementById('debris-per-gw').checked ?
+        `<span style="font-size:.68rem;color:var(--purple);font-family:var(--mono)">${(flux1cm * 1e9 / (1361 * 0.30)).toFixed(1)} /GW/yr</span>` : ''}
     </div>
     <div class="summary-item">
       <span class="label">Station-keeping ΔV</span>
@@ -958,6 +1087,16 @@ document.getElementById('atmos-off').addEventListener('click', () => {
   document.getElementById('atmos-on').classList.remove('active');
   updateCombined();
   updateSunshine();
+});
+
+document.getElementById('earth-compare-toggle').addEventListener('change', e => {
+  showEarthCompare = e.target.checked;
+  updateSunshine();
+});
+
+document.getElementById('debris-per-gw').addEventListener('change', () => {
+  updateDebris();
+  updateCombined(); // refreshes summary bar which shows per-GW flux
 });
 
 // Initial render

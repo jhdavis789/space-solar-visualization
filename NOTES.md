@@ -159,3 +159,36 @@ They do NOT analyze:
 - Detailed altitude selection trade-offs
 
 Our projects are complementary: we provide the orbital environment analysis they skip; they provide the compute hardware and networking analysis we haven't reached yet.
+
+---
+
+## Open Question: Terrestrial Mega-Solar + Datacenter vs Space
+
+**Core idea:** What if instead of going to space, you find a state with optimal solar coverage (Nevada, Arizona, New Mexico), buy an enormous tract of land, blanket it with solar panels, and build a datacenter underneath the panels? Bypass environmental regulations by paying a high tax to the state as compensation.
+
+### The arithmetic to explore
+
+- **GPU cost trajectory:** If $/FLOP/W continues declining (Moore's Law for AI accelerators), cheap chips change the calculus. If GPUs are cheap enough, you can afford to run them only ~33% of the time (daytime, clear sky) and still come out ahead on capex vs space.
+- **Utilization penalty:** Earth gets ~20% capacity factor (best desert) vs ~97%+ in dawn-dusk SSO. But if the chips cost 1/10th what they cost today in 5 years, the idle-time penalty shrinks relative to total system cost. Space has near-100% utilization but enormous delivery cost.
+- **No launch cost:** $0/kg to deploy on the ground. Compare: even at $200/kg to LEO, a 20 kg/kW satellite system costs $4,000/kW just to get there. On the ground, the panels + structure + land might be $800–1,500/kW all-in.
+- **Cooling advantage:** Ambient air cooling on Earth vs radiation-only cooling in vacuum. This is the unsolved problem in the Google paper. On Earth, you just run industrial HVAC.
+- **Regulatory arbitrage:** Pay the state, say, $50M/year in lieu of environmental review for a 10,000-acre solar+datacenter campus. States like Nevada already offer tax incentives for datacenters. Is this cheaper than orbital regulatory compliance (spectrum, debris mitigation, deorbit plans)?
+- **Grid independence:** Panels directly power the datacenter. No grid interconnection needed if you size batteries for overnight or just shut down at night. AI inference workloads (unlike training) can be bursty.
+
+### Key variables that determine which wins
+
+1. **GPU $/FLOP/W decline rate** — if it's fast enough, idle chips are cheap chips
+2. **Launch cost trajectory** — $200/kg vs $50/kg vs $10/kg completely changes the answer
+3. **Thermal dissipation cost in space** — if radiator mass dominates, space compute is heavier than the panels
+4. **Land + permitting cost** — how much does it actually cost to cover 10,000 acres of Nevada desert?
+5. **Battery vs no-battery** — does the datacenter just shut down at night, or do you need storage?
+
+### Why this might NOT work
+
+- Even the best desert only delivers ~20% capacity factor vs ~97% in space
+- Capital tied up in idle hardware earns nothing — opportunity cost matters
+- Scale limits: you need ENORMOUS land area to match space power density
+- Transmission losses if the datacenter serves remote users
+- Water scarcity in deserts (cooling towers need water, though dry cooling exists)
+
+**This deserves a side-by-side model on the dashboard: $/FLOP delivered, space vs terrestrial mega-solar, as a function of GPU cost trajectory and launch cost trajectory.**
