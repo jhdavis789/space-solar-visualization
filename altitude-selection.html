@@ -138,8 +138,41 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
     <div class="chart-container" id="chart-debris"></div>
   </div>
   <div class="chart-card">
-    <h3>Atmospheric Drag vs Altitude <span>Station-keeping ΔV requirement</span></h3>
+    <h3 style="display:flex;align-items:center;justify-content:space-between">
+      <span>Atmospheric Drag vs Altitude <span style="color:var(--text2);font-weight:400;font-size:.75rem;margin-left:6px">Sun-pointing panel drag & station-keeping</span></span>
+      <button id="drag-math-btn" style="font-size:.68rem;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;white-space:nowrap">Math Audit</button>
+    </h3>
     <div class="chart-container" id="chart-drag"></div>
+    <div id="drag-controls" style="padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div class="ctrl-group">
+        <label>Input mode:</label>
+        <select id="drag-input-mode" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:.75rem">
+          <option value="sqm">Area (m²)</option>
+          <option value="kw">Capacity (kW)</option>
+        </select>
+      </div>
+      <div class="ctrl-group" id="drag-sqm-group">
+        <label>Panel area:</label>
+        <input type="range" id="drag-area" min="100" max="100000" step="100" value="10000" style="width:120px;accent-color:var(--blue)">
+        <span class="val" id="drag-area-val">10,000 m²</span>
+      </div>
+      <div class="ctrl-group" id="drag-kw-group" style="display:none">
+        <label>Capacity:</label>
+        <input type="range" id="drag-kw" min="10" max="50000" step="10" value="1000" style="width:120px;accent-color:var(--blue)">
+        <span class="val" id="drag-kw-val">1,000 kW</span>
+      </div>
+      <div class="ctrl-group">
+        <label>Efficiency:</label>
+        <input type="range" id="drag-eff" min="10" max="50" step="1" value="30" style="width:80px;accent-color:var(--blue)">
+        <span class="val" id="drag-eff-val">30%</span>
+      </div>
+      <div class="ctrl-group">
+        <label>Mass:</label>
+        <input type="range" id="drag-mass" min="0.1" max="5" step="0.1" value="1.0" style="width:80px;accent-color:var(--blue)">
+        <span class="val" id="drag-mass-val">1.0 kg/m²</span>
+      </div>
+    </div>
+    <div id="drag-math-audit" style="display:none;padding:14px 18px;border-top:1px solid var(--border);font-size:.72rem;color:var(--text2);font-family:var(--mono);line-height:1.8;max-height:500px;overflow-y:auto;white-space:pre-wrap"></div>
   </div>
   <div class="chart-card">
     <h3>Combined Altitude Penalties <span>Normalized factors — lower is better</span></h3>
@@ -573,9 +606,12 @@ function atmDensity(alt_km, solarCycle) {
 }
 
 // Station-keeping ΔV per year (m/s/year)
-// F_drag = ½ρv²C_d*A
-// a_drag = F_drag / m = ½ρv²C_d*(A/m)
+// F_drag = ½ρv²C_d*A_cross
+// a_drag = F_drag / m = ½ρv²C_d*(A_cross/m)
 // ΔV/year = a_drag * seconds_per_year
+//
+// For sun-pointing panels, the cross-sectional area facing the ram direction
+// varies around the orbit. We compute the orbit-averaged cross-section.
 function stationKeepingDV(alt_km, area_m2, massPerM2, solarCycle) {
   const Cd = 2.2; // drag coefficient, flat plate
   const rho = atmDensity(alt_km, solarCycle); // kg/m³
@@ -586,6 +622,124 @@ function stationKeepingDV(alt_km, area_m2, massPerM2, solarCycle) {
   const aDrag = 0.5 * rho * v * v * Cd * areaToMass; // m/s²
   const secPerYear = 365.25 * 86400;
   return aDrag * secPerYear; // m/s/year
+}
+
+// Compute orbit-averaged cross-section fraction for sun-pointing panels.
+// Panel normal always points at the sun.
+// Cross-section seen by ram = A × |cos(angle between panel_normal and velocity)|
+// = A × |n̂_sun · v̂|
+//
+// For SSO dawn-dusk: orbital plane contains velocity vector.
+// Sun direction in orbital-plane coords depends on beta angle and true anomaly.
+// β = angle between sun and orbital plane. For dawn-dusk SSO, β oscillates
+// seasonally between ~66.6° and 90°.
+//
+// In the orbital reference frame:
+//   v̂ ≈ along-track (tangent to orbit)
+//   Panel normal = sun direction = cos(β)·(in-plane component) + sin(β)·(orbit-normal)
+//   The in-plane component rotates with the satellite around the orbit.
+//
+// At true anomaly θ along the orbit:
+//   v̂ = [-sin(θ), cos(θ), 0]  (in perifocal frame)
+//   ŝ_sun projected into orbit frame: the in-plane part of the sun direction
+//   rotates relative to the orbit. For a circular orbit:
+//   n̂_sun · v̂ = cos(β) · cos(θ - θ_sun)
+//   where θ_sun is the sun's angular position in the orbital plane.
+//   For dawn-dusk SSO, θ_sun ≈ 90° (sun is at the ascending/descending node direction).
+//
+// Orbit-averaged |cos(β) · cos(θ - 90°)| = cos(β) × (1/2π) ∫₀²π |sin(θ)| dθ
+//                                          = cos(β) × 2/π
+//
+// So: <A_cross> / A = cos(β) × 2/π
+//
+// At β_min = 66.56°: fraction = cos(66.56°) × 2/π = 0.3976 × 0.6366 = 0.253
+// At β = 90° (solstice): fraction = 0 (edge-on to ram)
+// Annual average over β: integrate over the year.
+function sunPointingCrossFraction(alt_km, orbitType) {
+  if (orbitType === 'iss') {
+    // ISS-like: RAAN drifts, sun angle varies widely.
+    // Conservative: panels track sun but orbit plane is random relative to sun.
+    // Average |n̂_sun · v̂| over all geometries ≈ 2/π² ≈ 0.203
+    // (double average: over orbit and over RAAN precession)
+    return 2 / (Math.PI * Math.PI);
+  }
+
+  // For SSO: β varies seasonally. Compute annual average.
+  // β for dawn-dusk SSO: sin(β) = cos(ε - (90° - i_sso))
+  // More precisely: β ranges from (90° - ε) to 90° over the year
+  // where ε = 23.44°
+  const epsilon = 23.44 * DEG;
+  const inc = ssoIncRad(alt_km);
+
+  // Dawn-dusk: RAAN = 90° from sun. Beta angle over the year:
+  // sin(β) = sin(inc) * cos(δ_sun) * sin(Ω - α_sun) + cos(inc) * sin(δ_sun)
+  // For dawn-dusk RAAN tracking: Ω - α_sun = 90° always, so sin(Ω - α_sun) = 1
+  // sin(β) = sin(inc) * cos(δ_sun) + cos(inc) * sin(δ_sun) = sin(inc + δ_sun)
+  //
+  // For noon-midnight: Ω - α_sun = 0°, so sin(Ω - α_sun) = 0
+  // sin(β) = cos(inc) * sin(δ_sun)
+  const nDays = 365;
+  let sumFrac = 0;
+  for (let d = 0; d < nDays; d++) {
+    const decl = epsilon * Math.sin(2 * Math.PI * (d - 80) / 365.25);
+    let sinBeta;
+    if (orbitType === 'sso-noon') {
+      sinBeta = Math.cos(inc) * Math.sin(decl);
+    } else {
+      // dawn-dusk (default)
+      sinBeta = Math.sin(inc + decl);
+    }
+    const beta = Math.asin(Math.max(-1, Math.min(1, sinBeta)));
+    const cosBeta = Math.cos(beta);
+    // Orbit-averaged |n̂_sun · v̂| = cos(β) × 2/π
+    sumFrac += Math.abs(cosBeta) * 2 / Math.PI;
+  }
+  return sumFrac / nDays;
+}
+
+// Sun-pointing drag model: full calculation returning detailed breakdown
+function sunPointingDrag(alt_km, area_m2, massPerM2, solarCycle, orbitType, efficiency) {
+  const Cd = 2.2;
+  const rho = atmDensity(alt_km, solarCycle);
+  const v_kms = orbVelocity(alt_km);
+  const v = v_kms * 1000; // m/s
+  const totalMass = area_m2 * massPerM2;
+
+  // Cross-section: sun-pointing panels
+  const crossFrac = sunPointingCrossFraction(alt_km, orbitType || 'sso-dd');
+  const A_cross = area_m2 * crossFrac;
+
+  // Drag force
+  const F_drag = 0.5 * rho * v * v * Cd * A_cross; // N
+
+  // Acceleration
+  const a_drag = F_drag / totalMass; // m/s²
+
+  // ΔV per year
+  const secPerYear = 365.25 * 86400;
+  const dv_year = a_drag * secPerYear;
+
+  // Power generated
+  const power_W = area_m2 * SOLAR_CONST * (efficiency / 100);
+
+  // Propellant mass (Hall thruster Isp = 1800s)
+  const Isp = 1800;
+  const g0 = 9.80665;
+  const propellant_kg_yr = totalMass * (1 - Math.exp(-dv_year / (Isp * g0)));
+
+  // Power needed for station-keeping (Hall thruster: ~50 mN/kW)
+  const thrust_needed = F_drag; // N, continuous
+  const sk_power_W = thrust_needed / 0.05; // W (50 mN per kW = 0.05 N/kW)
+  const sk_power_frac = power_W > 0 ? sk_power_W / power_W : 0;
+
+  return {
+    alt: alt_km, area: area_m2, massPerM2, totalMass,
+    rho, v_kms, v, Cd,
+    crossFrac, A_cross, F_drag, a_drag,
+    dv_year, power_W, efficiency,
+    propellant_kg_yr, Isp, sk_power_W, sk_power_frac,
+    solarCycle,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -854,50 +1008,198 @@ function updateDebris() {
   Plotly.react('chart-debris', traces, layout, { responsive: true, displayModeBar: false });
 }
 
+function getDragParams() {
+  const mode = document.getElementById('drag-input-mode').value;
+  const eff = parseFloat(document.getElementById('drag-eff').value);
+  const massPerM2 = parseFloat(document.getElementById('drag-mass').value);
+  let area;
+  if (mode === 'kw') {
+    const kw = parseFloat(document.getElementById('drag-kw').value);
+    // kW = area × 1361 × (eff/100) / 1000  →  area = kW × 1000 / (1361 × eff/100)
+    area = kw * 1000 / (SOLAR_CONST * eff / 100);
+  } else {
+    area = parseFloat(document.getElementById('drag-area').value);
+  }
+  return { area, massPerM2, eff };
+}
+
 function updateDrag() {
   const s = getState();
+  const dp = getDragParams();
+  const orbitType = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
   const traces = [];
 
-  // Solar min
-  const dvMin = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, 'min'));
+  // Solar min — sun-pointing model
+  const dvMin = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'min', orbitType, dp.eff).dv_year);
   traces.push({
-    x: altitudes, y: dvMin, name: 'Solar Minimum',
+    x: altitudes, y: dvMin, name: 'Solar Min (sun-pointing)',
     line: { color: '#58a6ff', width: 2 },
   });
 
-  // Solar max
-  const dvMax = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, 'max'));
+  // Solar max — sun-pointing model
+  const dvMax = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'max', orbitType, dp.eff).dv_year);
   traces.push({
-    x: altitudes, y: dvMax, name: 'Solar Maximum',
+    x: altitudes, y: dvMax, name: 'Solar Max (sun-pointing)',
     line: { color: '#f85149', width: 2 },
   });
 
-  // Average
-  const dvAvg = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, 'avg'));
+  // Average — sun-pointing model
+  const dvAvg = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'avg', orbitType, dp.eff).dv_year);
   traces.push({
-    x: altitudes, y: dvAvg, name: 'Average',
+    x: altitudes, y: dvAvg, name: 'Average (sun-pointing)',
     line: { color: '#d29922', width: 2, dash: 'dash' },
   });
 
-  // Hall thruster practical limit (~300 m/s/year with reasonable propellant budget)
+  // Broadside comparison (worst case: full area faces ram)
+  const dvBroadside = altitudes.map(a => stationKeepingDV(a, dp.area, dp.massPerM2, 'avg'));
   traces.push({
-    x: [200, 2000], y: [300, 300], name: 'Hall thruster practical limit',
+    x: altitudes, y: dvBroadside, name: 'Broadside (worst case)',
+    line: { color: '#6e7681', width: 1.5, dash: 'dot' },
+  });
+
+  // Hall thruster practical limit
+  traces.push({
+    x: [200, 2000], y: [300, 300], name: 'Hall thruster limit',
     line: { color: '#3fb950', width: 1, dash: 'dot' }, mode: 'lines',
   });
+
+  // Compute cross-section fraction for annotation
+  const crossFrac = sunPointingCrossFraction(650, orbitType);
+  const capacityKW = dp.area * SOLAR_CONST * (dp.eff / 100) / 1000;
 
   const layout = {
     ...plotLayout,
     xaxis: { ...plotLayout.xaxis, title: 'Altitude (km)' },
     yaxis: { ...plotLayout.yaxis, title: 'Station-keeping ΔV (m/s/year)', type: 'log',
              exponentformat: 'power', range: [-3, 6] },
-    annotations: [{
-      x: 500, y: Math.log10(300), text: '~300 m/s/yr Hall thruster limit',
-      showarrow: false, font: { size: 10, color: '#3fb950' }, yshift: 12,
-    }],
+    annotations: [
+      { x: 500, y: Math.log10(300), text: '~300 m/s/yr Hall thruster limit',
+        showarrow: false, font: { size: 10, color: '#3fb950' }, yshift: 12 },
+      { x: 1500, y: 5, xanchor: 'center',
+        text: `${dp.area.toLocaleString()} m² · ${capacityKW.toFixed(0)} kW · ${(crossFrac*100).toFixed(1)}% cross-section`,
+        showarrow: false, font: { size: 9, color: '#8b949e' } },
+    ],
   };
 
   Plotly.react('chart-drag', traces, layout, { responsive: true, displayModeBar: false });
 }
+
+function updateDragMathAudit() {
+  const s = getState();
+  const dp = getDragParams();
+  const orbitType = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
+  const refAlt = 650; // reference altitude for detailed audit
+
+  const d = sunPointingDrag(refAlt, dp.area, dp.massPerM2, s.solarCycle, orbitType, dp.eff);
+  const crossFrac = sunPointingCrossFraction(refAlt, orbitType);
+  const epsilon = 23.44;
+  const inc_deg = ssoIncRad(refAlt) * RAD;
+
+  // Beta angle range for dawn-dusk SSO
+  const betas = [];
+  for (let day = 0; day < 365; day++) {
+    const decl = epsilon * DEG * Math.sin(2 * Math.PI * (day - 80) / 365.25);
+    const sinB = Math.sin(ssoIncRad(refAlt) + decl);
+    betas.push(Math.asin(Math.max(-1, Math.min(1, sinB))) * RAD);
+  }
+  const betaMin = Math.min(...betas).toFixed(1);
+  const betaMax = Math.max(...betas).toFixed(1);
+
+  const audit = document.getElementById('drag-math-audit');
+  audit.innerHTML = `<b>═══ DRAG MATH AUDIT — ${refAlt} km ${orbitType.toUpperCase()} ═══</b>
+
+<b>INPUTS</b>
+  Panel area (A)          = ${dp.area.toLocaleString()} m²
+  Panel efficiency (η)    = ${dp.eff}%
+  Generated power          = A × S₀ × η = ${dp.area.toLocaleString()} × ${SOLAR_CONST} × ${dp.eff/100} = <b>${(d.power_W/1000).toFixed(1)} kW</b>
+  Panel mass density       = ${dp.massPerM2} kg/m²
+  Total mass (m)           = A × ρ_panel = ${dp.area.toLocaleString()} × ${dp.massPerM2} = <b>${d.totalMass.toLocaleString()} kg</b>
+  Drag coefficient (C_d)   = ${d.Cd} (flat plate, standard for solar arrays)
+  Solar cycle              = ${d.solarCycle}
+
+<b>ORBITAL PARAMETERS at ${refAlt} km</b>
+  Orbital radius (r)       = R_E + alt = 6371 + ${refAlt} = ${6371 + refAlt} km
+  Orbital velocity (v)     = √(μ/r) = √(398600.4 / ${6371 + refAlt}) = <b>${d.v_kms.toFixed(3)} km/s = ${d.v.toFixed(1)} m/s</b>
+  SSO inclination          = ${inc_deg.toFixed(2)}°
+
+<b>ATMOSPHERIC DENSITY (NRLMSISE-00)</b>
+  ρ(${refAlt} km, ${d.solarCycle})  = <b>${d.rho.toExponential(2)} kg/m³</b>
+  Source: NRLMSISE-00 tabulated values, log-interpolated between grid points.
+  Solar min (F10.7≈70) and max (F10.7≈140) bracket real conditions.
+  Density varies 10-100× between solar min/max at 500-1000 km.
+
+<b>SUN-POINTING CROSS-SECTION MODEL</b>
+  The key insight: sun-pointing panels do NOT present their full area to the
+  velocity vector. The cross-section depends on the angle between the panel
+  normal (pointing at sun) and the ram direction (velocity vector).
+
+  <b>Step 1: Beta angle (β)</b> — angle between sun direction and orbital plane.
+    For dawn-dusk SSO: sin(β) = sin(i + δ_sun)
+    where i = ${inc_deg.toFixed(2)}° (SSO inclination) and δ_sun = sun declination (±23.44° over year).
+    β ranges from ${betaMin}° to ${betaMax}° over the year.
+
+  <b>Step 2: Panel normal decomposition</b>
+    Sun direction in orbital frame:
+      ŝ = cos(β) × [in-plane component] + sin(β) × [orbit-normal component]
+    The in-plane component of the sun direction, at true anomaly θ along the orbit,
+    projects onto the velocity direction as: cos(β) × cos(θ - θ_sun)
+    For dawn-dusk SSO: θ_sun ≈ 90° (sun at ascending node direction).
+
+  <b>Step 3: Orbit-averaged cross-section</b>
+    <A_cross> = A × (1/2π) ∫₀²π |cos(β) × cos(θ - 90°)| dθ
+              = A × cos(β) × (1/2π) ∫₀²π |sin(θ)| dθ
+              = A × cos(β) × 2/π
+
+  <b>Step 4: Annual average</b>
+    Average over all days: <A_cross>/A = (1/365) Σ cos(β(day)) × 2/π
+    = <b>${(crossFrac * 100).toFixed(2)}%</b> of total panel area
+
+    Compare: broadside (100%) vs sun-pointing (${(crossFrac * 100).toFixed(1)}%)
+    Sun-pointing reduces drag by <b>${((1 - crossFrac) * 100).toFixed(1)}%</b> vs worst case.
+
+<b>DRAG FORCE</b>
+  F_drag = ½ × ρ × v² × C_d × A_cross
+         = ½ × ${d.rho.toExponential(2)} × ${d.v.toFixed(1)}² × ${d.Cd} × ${d.A_cross.toFixed(1)}
+         = <b>${d.F_drag.toExponential(3)} N</b>
+
+  Dynamic pressure: q = ½ρv² = ${(0.5 * d.rho * d.v * d.v).toExponential(3)} Pa
+
+<b>DRAG ACCELERATION</b>
+  a_drag = F_drag / m = ${d.F_drag.toExponential(3)} / ${d.totalMass.toLocaleString()}
+         = <b>${d.a_drag.toExponential(3)} m/s²</b>
+
+<b>STATION-KEEPING ΔV</b>
+  ΔV/year = a_drag × seconds_per_year
+          = ${d.a_drag.toExponential(3)} × 31,557,600
+          = <b>${d.dv_year < 0.01 ? d.dv_year.toExponential(3) : d.dv_year.toFixed(3)} m/s/year</b>
+
+<b>PROPULSION REQUIREMENTS (Hall Thruster, Isp = ${d.Isp}s)</b>
+  Propellant/year = m × (1 - e^(-ΔV/(Isp×g₀)))
+                  = ${d.totalMass.toLocaleString()} × (1 - e^(-${d.dv_year.toFixed(3)}/${(d.Isp * 9.80665).toFixed(0)}))
+                  = <b>${d.propellant_kg_yr < 0.01 ? d.propellant_kg_yr.toExponential(2) : d.propellant_kg_yr.toFixed(2)} kg/year</b>
+
+  Continuous thrust needed  = ${d.F_drag.toExponential(3)} N
+  Hall thruster efficiency  ≈ 50 mN/kW (0.05 N per kW of electrical input)
+  Power for station-keeping = ${d.sk_power_W < 0.01 ? d.sk_power_W.toExponential(2) : d.sk_power_W.toFixed(2)} W
+  Fraction of generated power = <b>${(d.sk_power_frac * 100).toFixed(4)}%</b>
+${d.sk_power_frac < 0.01 ? '  ✓ Negligible — self-powered station-keeping is trivially feasible.' :
+  d.sk_power_frac < 0.10 ? '  ✓ Manageable — small fraction of generated power.' :
+  '  ⚠ Significant — large fraction of power consumed by station-keeping!'}
+
+<b>WHAT DRAG DEPENDS ON</b>
+  1. Atmospheric density (ρ) — exponential with altitude, 10-100× solar cycle variation
+  2. Orbital velocity (v²) — ~7.5 km/s in LEO, varies weakly with altitude
+  3. Cross-sectional area (A_cross) — NOT total panel area for sun-pointing panels
+  4. Drag coefficient (C_d) — ~2.2 for flat plate (free molecular flow)
+  5. Area-to-mass ratio (A/m) — lighter panels = more ΔV per year
+
+<b>SOURCES</b>
+  Density: NRLMSISE-00 (Picone et al., 2002)
+  Drag coefficient: Sentman (1961), free molecular flow theory
+  Hall thruster Isp: BPT-4000 (Aerojet Rocketdyne), SPT-140 (Fakel)
+  Cross-section geometry: First principles orbital mechanics`;
+}
+
 
 function updateCombined() {
   const s = getState();
@@ -910,7 +1212,8 @@ function updateCombined() {
   const sunlitData = altitudes.map(a => getAnnualAvg(effectiveOrbit, a, atmosOn));
 
   const debrisData = altitudes.map(a => debrisFlux(1.0, a, inc, s.year, s.solarF107));
-  const dragData = altitudes.map(a => stationKeepingDV(a, s.area, s.massPerM2, s.solarCycle));
+  const dp = getDragParams();
+  const dragData = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, s.solarCycle, effectiveOrbit, dp.eff).dv_year);
 
   // Normalize each to 0-1 where 0 = best, 1 = worst
   // Sunshine penalty: (1 - sunlit_fraction) — 0 means 100% sunlit
@@ -984,7 +1287,9 @@ function updateSummary(bestAlt, s) {
 
   const inc = s.orbitType === 'iss' ? 51.6 : 98;
   const flux1cm = debrisFlux(1.0, bestAlt, inc, s.year, s.solarF107);
-  const dv = stationKeepingDV(bestAlt, s.area, s.massPerM2, s.solarCycle);
+  const dp = getDragParams();
+  const dragResult = sunPointingDrag(bestAlt, dp.area, dp.massPerM2, s.solarCycle, effectiveOrbit, dp.eff);
+  const dv = dragResult.dv_year;
   const batteryWhPerKw = eclipse < 0.1 ? 0 : (SOLAR_CONST * sunlit) * (eclipse / 60);
 
   const bar = document.getElementById('summary-bar');
@@ -1097,6 +1402,61 @@ document.getElementById('earth-compare-toggle').addEventListener('change', e => 
 document.getElementById('debris-per-gw').addEventListener('change', () => {
   updateDebris();
   updateCombined(); // refreshes summary bar which shows per-GW flux
+});
+
+// ── Drag chart controls ──
+document.getElementById('drag-input-mode').addEventListener('change', e => {
+  const sqmGroup = document.getElementById('drag-sqm-group');
+  const kwGroup = document.getElementById('drag-kw-group');
+  if (e.target.value === 'kw') {
+    sqmGroup.style.display = 'none';
+    kwGroup.style.display = 'flex';
+  } else {
+    sqmGroup.style.display = 'flex';
+    kwGroup.style.display = 'none';
+  }
+  updateDrag();
+  updateDragMathAudit();
+});
+
+document.getElementById('drag-area').addEventListener('input', e => {
+  document.getElementById('drag-area-val').textContent = parseInt(e.target.value).toLocaleString() + ' m²';
+  updateDrag();
+  if (document.getElementById('drag-math-audit').style.display !== 'none') updateDragMathAudit();
+});
+
+document.getElementById('drag-kw').addEventListener('input', e => {
+  document.getElementById('drag-kw-val').textContent = parseInt(e.target.value).toLocaleString() + ' kW';
+  updateDrag();
+  if (document.getElementById('drag-math-audit').style.display !== 'none') updateDragMathAudit();
+});
+
+document.getElementById('drag-eff').addEventListener('input', e => {
+  document.getElementById('drag-eff-val').textContent = e.target.value + '%';
+  updateDrag();
+  if (document.getElementById('drag-math-audit').style.display !== 'none') updateDragMathAudit();
+});
+
+document.getElementById('drag-mass').addEventListener('input', e => {
+  document.getElementById('drag-mass-val').textContent = parseFloat(e.target.value).toFixed(1) + ' kg/m²';
+  updateDrag();
+  if (document.getElementById('drag-math-audit').style.display !== 'none') updateDragMathAudit();
+});
+
+document.getElementById('drag-math-btn').addEventListener('click', () => {
+  const audit = document.getElementById('drag-math-audit');
+  if (audit.style.display === 'none') {
+    audit.style.display = 'block';
+    updateDragMathAudit();
+    document.getElementById('drag-math-btn').textContent = 'Hide Math';
+    document.getElementById('drag-math-btn').style.borderColor = 'var(--blue)';
+    document.getElementById('drag-math-btn').style.color = 'var(--blue)';
+  } else {
+    audit.style.display = 'none';
+    document.getElementById('drag-math-btn').textContent = 'Math Audit';
+    document.getElementById('drag-math-btn').style.borderColor = '';
+    document.getElementById('drag-math-btn').style.color = '';
+  }
 });
 
 // Initial render

@@ -1,3 +1,1052 @@
 <!DOCTYPE html>
-<html><head><meta http-equiv="refresh" content="0;url=index.html"><title>Redirecting…</title></head>
-<body><a href="index.html">Click here</a></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Earth, Sun & Orbits — 3D Scale Model</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;height:100vh;width:100vw}
+canvas{display:block}
+#ui{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;display:flex;flex-direction:column}
+#ui>*{pointer-events:auto}
+
+/* TOP BAR */
+#topbar{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 14px;pointer-events:none}
+#topbar>*{pointer-events:auto}
+#sat-toggle{display:flex;gap:3px}
+.stb{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#999;padding:5px 10px;font-size:.7rem;border-radius:4px;cursor:pointer;transition:all .2s}
+.stb:hover{background:rgba(255,255,255,.1);color:#ccc}
+.stb.active{background:rgba(40,180,120,.18);border-color:rgba(40,180,120,.45);color:#6fc}
+#title{text-align:center;pointer-events:none}
+#title h1{font-size:1.2rem;font-weight:300;letter-spacing:.12em;text-transform:uppercase;color:#fff;text-shadow:0 0 20px rgba(100,150,255,.25)}
+#title .sub{font-size:.65rem;color:#667;margin-top:2px}
+#view-buttons{display:flex;gap:4px}
+.vb{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#bbb;padding:5px 11px;font-size:.7rem;border-radius:4px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.vb:hover{background:rgba(255,255,255,.1);color:#fff}
+.vb.active{background:rgba(80,130,255,.18);border-color:rgba(80,130,255,.45);color:#fff}
+
+/* MIDDLE ROW */
+#middle{flex:1;display:flex;pointer-events:none}
+#middle>*{pointer-events:auto}
+
+/* LEFT CONTROLS */
+#lctrl{width:175px;padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+.ctrl-section{background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:8px 10px;backdrop-filter:blur(6px)}
+.ctrl-section label{display:block;font-size:.62rem;color:#778;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.ctrl-section input[type=range]{width:100%;accent-color:#6c8;height:4px}
+.ctrl-val{font-size:.7rem;color:#aab;text-align:center;margin-top:2px;font-variant-numeric:tabular-nums;cursor:pointer}.ctrl-val:hover{color:#dde}.ctrl-val-input{font-size:.7rem;color:#fff;background:#223;border:1px solid #58a6ff;border-radius:3px;text-align:center;width:80px;padding:1px 4px;outline:none;font-variant-numeric:tabular-nums}
+.ctrl-row{display:flex;gap:3px;margin-top:4px}
+.cbtn{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#999;padding:4px 0;font-size:.65rem;border-radius:4px;cursor:pointer;text-align:center;transition:all .15s}
+.cbtn:hover{background:rgba(255,255,255,.1);color:#ccc}
+.cbtn.active{background:rgba(80,180,130,.15);border-color:rgba(80,180,130,.4);color:#6fc}
+.cbtn.warn{background:rgba(255,180,40,.12);border-color:rgba(255,180,40,.35);color:#fc8}
+#alt-note{font-size:.6rem;color:#6a6;margin-top:3px;min-height:1.2em}
+#math-btn{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#88a;padding:5px;font-size:.68rem;border-radius:4px;cursor:pointer;text-align:center;margin-top:4px}
+#math-btn:hover{color:#aac;background:rgba(255,255,255,.08)}
+
+/* RIGHT DASHBOARD */
+#dashboard{width:220px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.dash-panel{background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:8px 10px;backdrop-filter:blur(6px)}
+.dash-panel h4{font-size:.68rem;font-weight:600;letter-spacing:.05em;margin-bottom:5px}
+.dash-panel h4.space{color:#6cf}
+.dash-panel h4.ground{color:#fa5}
+.bar-row{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.bar-label{font-size:.6rem;color:#889;width:38px;flex-shrink:0}
+.bar-track{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.bar-fill.space{background:linear-gradient(90deg,#2a6,#4cf)}
+.bar-fill.ground{background:linear-gradient(90deg,#b60,#fa5)}
+.bar-val{font-size:.62rem;color:#bbc;width:36px;text-align:right;font-variant-numeric:tabular-nums}
+.dash-wm2{font-size:.58rem;color:#667;text-align:right;margin-top:-1px;margin-bottom:2px}
+.dash-adv{text-align:center;font-size:.72rem;color:#6fc;font-weight:600;padding:5px 0}
+#dash-detail{font-size:.58rem;color:#778;text-align:center;margin-top:2px}
+
+/* BOTTOM BAR */
+#bottombar{padding:8px 14px;display:flex;justify-content:center;align-items:center;gap:20px;pointer-events:none}
+#bottombar>*{pointer-events:auto}
+#clock{text-align:center;pointer-events:none}
+#clock .time{font-size:1rem;color:#dde;font-variant-numeric:tabular-nums;font-weight:300}
+#clock .date{font-size:.7rem;color:#889;margin-top:1px}
+
+/* MATH PANEL */
+#math-panel{position:absolute;top:50px;left:190px;right:240px;max-height:calc(100vh - 100px);background:rgba(0,0,0,.9);border:1px solid rgba(255,255,255,.12);border-radius:10px;backdrop-filter:blur(12px);display:none;overflow:hidden;z-index:10}
+#math-panel.open{display:flex;flex-direction:column}
+#math-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+#math-header h3{font-size:.78rem;color:#8ab4ff;font-weight:600}
+#math-close{background:none;border:none;color:#666;font-size:1rem;cursor:pointer;padding:2px 6px}
+#math-close:hover{color:#aaa}
+#math-content{overflow-y:auto;padding:12px 14px;font-size:.68rem;line-height:1.65;color:#bbc}
+.msec{margin-bottom:12px}.mt{color:#8ab4ff;font-weight:600;font-size:.72rem;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:3px}
+.eq{font-family:'SF Mono',Consolas,monospace;background:rgba(255,255,255,.04);padding:3px 7px;border-radius:3px;margin:2px 0;display:block;color:#dde;font-size:.66rem}
+.note{color:#8a8;font-style:italic;margin:3px 0;font-size:.64rem}
+.result{color:#6fc;font-weight:600}
+.warn-box{color:#fa4;margin:5px 0;padding:5px 7px;background:rgba(255,200,0,.05);border-radius:4px;font-size:.64rem}
+
+.dash-stats{font-size:.58rem;color:#889;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.06);line-height:1.5}
+.dash-stats span{color:#bbc}
+.dash-stats .kwh{color:#6fc;font-weight:600}
+#atm-info-btn,#wx-info-btn{background:none;border:1px solid rgba(255,255,255,.15);color:#889;font-size:.55rem;width:14px;height:14px;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;vertical-align:middle;line-height:1;padding:0}
+#atm-info-btn:hover,#wx-info-btn:hover{color:#ccc;border-color:rgba(255,255,255,.3)}
+#atm-info,#wx-info{position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:rgba(0,0,0,.92);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;font-size:.62rem;line-height:1.6;color:#aab;backdrop-filter:blur(10px);display:none;z-index:5;max-height:60vh;overflow-y:auto}
+#atm-info.open,#wx-info.open{display:block}
+#atm-info h5,#wx-info h5{color:#8ab4ff;font-size:.66rem;margin:6px 0 3px;font-weight:600}
+#atm-info h5:first-child,#wx-info h5:first-child{margin-top:0}
+#atm-info code,#wx-info code{font-family:'SF Mono',Consolas,monospace;background:rgba(255,255,255,.05);padding:1px 4px;border-radius:2px;color:#dde;font-size:.6rem}
+#atm-info .warn,#wx-info .warn{color:#fa5}
+.label3d{color:#aab;font-size:10px;pointer-events:none;white-space:nowrap;text-shadow:0 0 5px rgba(0,0,0,.9),0 0 10px rgba(0,0,0,.7)}
+.page-nav{display:flex;gap:3px;align-items:center;margin-left:10px}
+.page-nav a{color:#999;text-decoration:none;font-size:.65rem;padding:3px 8px;border-radius:4px;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.page-nav a:hover{color:#ccc;border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.07)}
+.page-nav a.active{color:#6cf;border-color:rgba(100,200,255,.35);background:rgba(100,200,255,.1)}
+.page-nav .sep{color:rgba(255,255,255,.12);font-size:.5rem;user-select:none}
+@media(max-width:800px){#lctrl{width:140px}#dashboard{width:170px}.vb,.stb{font-size:.62rem;padding:4px 7px}.page-nav{display:none}}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="topbar">
+    <div id="sat-toggle"><button class="stb active" data-sat="sso">Solar Array (SSO)</button><button class="stb" data-sat="iss">ISS</button></div>
+    <div id="title"><h1>Earth, Orbits & the Sun</h1><div class="sub">3D to-scale model — drag to orbit, scroll to zoom</div></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <div id="view-buttons"><button class="vb active" data-v="leo">LEO & Earth</button><button class="vb" data-v="sunpov">Sun's POV</button><button class="vb" data-v="compare">LEO vs GEO</button><button class="vb" data-v="solar">Earth–Sun Dist.</button></div>
+      <nav class="page-nav">
+        <span class="sep">|</span>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="altitude-selection.html">Altitude</a>
+        <a href="index.html" class="active">3D Viz</a>
+      </nav>
+    </div>
+  </div>
+  <div id="middle">
+    <div id="lctrl">
+      <div class="ctrl-section">
+        <label>Orbit Altitude</label>
+        <input type="range" id="alt-slider" min="400" max="2000" step="10" value="600">
+        <div class="ctrl-val" id="alt-val">600 km</div>
+        <div id="alt-note"></div>
+      </div>
+      <div class="ctrl-section">
+        <label>Day Rotation</label>
+        <div class="ctrl-row">
+          <button class="cbtn active" data-sp="day">Play</button>
+          <button class="cbtn" data-sp="pause">Pause</button>
+        </div>
+      </div>
+      <div class="ctrl-section">
+        <label>Season / Day of Year</label>
+        <input type="range" id="doy-slider" min="0" max="364" step="1" value="0">
+        <div class="ctrl-val" id="doy-val">Jan 1</div>
+      </div>
+      <div class="ctrl-section">
+        <label>Frame</label>
+        <div class="ctrl-row">
+          <button class="cbtn active" id="frame-sun">Sun-fixed</button>
+          <button class="cbtn" id="frame-earth">Earth-fixed</button>
+        </div>
+      </div>
+      <div class="ctrl-section">
+        <label>Sun Scale (LEO view)</label>
+        <div class="ctrl-row">
+          <button class="cbtn active" id="sun-off">Normal</button>
+          <button class="cbtn" id="sun-on">Show True Sun</button>
+        </div>
+      </div>
+      <div class="ctrl-section" style="position:relative">
+        <label>Atmosphere<button id="atm-info-btn">?</button></label>
+        <div class="ctrl-row">
+          <button class="cbtn" id="atm-off">Off</button>
+          <button class="cbtn active" id="atm-on">On</button>
+        </div>
+        <div id="atm-info">
+          <h5>What "Atmosphere" toggles</h5>
+          When <strong>ON</strong>, sunlight passing through Earth's atmosphere is attenuated before reaching the panel. When <strong>OFF</strong>, the only loss is geometric shadowing (night/eclipse).
+          <h5>Ground panel model</h5>
+          <strong>Air mass</strong> via Kasten-Young (1989):<br>
+          <code>AM = 1/(sin(α) + 0.50572·(α°+6.08)^-1.6364)</code><br>
+          where α = solar elevation angle. At zenith AM=1, at horizon AM≈38.<br><br>
+          <strong>Transmittance</strong> via Meinel (1976) clear-sky broadband:<br>
+          <code>T = 0.7^(AM^0.678)</code><br>
+          The 0.678 exponent averages Rayleigh scattering, Mie aerosol, and molecular absorption across the full solar spectrum.<br><br>
+          <span class="warn">Clear sky only — no clouds, rain, or haze. Real-world ground output is ~25-50% lower depending on climate.</span>
+          <h5>Space panel model</h5>
+          Near the shadow boundary, the satellite-to-Sun line of sight grazes Earth's atmosphere. The <strong>tangent height</strong> h<sub>t</sub> is the closest approach of that ray to Earth's surface.<br><br>
+          <strong>Limb air mass</strong> via Chapman function for exponential atmosphere (ρ = ρ₀·e^(-h/H)):<br>
+          <code>AM(h_t) = e^(-h_t/H) · √(2π(R_e+h_t)/H)</code><br>
+          H = 8.5 km (scale height). This is the exact analytical integral of density along the chord.<br><br>
+          Same Meinel transmittance: <code>T = 0.7^(AM^0.678)</code><br><br>
+          Effect is small (~0.01-0.1% annual average) since the penumbra transition spans only ~80 km of tangent height (~12 seconds of orbit).
+        </div>
+      </div>
+      <div class="ctrl-section" style="position:relative">
+        <label>Weather (Ground)<button id="wx-info-btn">?</button></label>
+        <div class="ctrl-row">
+          <button class="cbtn" id="wx-off">Off</button>
+          <button class="cbtn active" id="wx-on">On</button>
+        </div>
+        <div id="wx-info">
+          <h5>What "Weather" toggles</h5>
+          When <strong>ON</strong>, ground panel output is reduced by monthly cloud/weather factors for Los Angeles based on TMY3 (Typical Meteorological Year) measured data.<br><br>
+          <strong>Monthly factors</strong> (fraction of clear-sky GHI reaching ground):<br>
+          <code>Jan 0.70 · Feb 0.72 · Mar 0.70 · Apr 0.74</code><br>
+          <code>May 0.70 · Jun 0.78 · Jul 0.87 · Aug 0.86</code><br>
+          <code>Sep 0.82 · Oct 0.75 · Nov 0.74 · Dec 0.69</code><br><br>
+          Annual average: ~0.76 (LA is one of the sunniest US cities).<br>
+          Accounts for: clouds, marine layer, haze, fog, and aerosols.<br><br>
+          <span class="warn">Space panel is unaffected — no weather in orbit.</span><br>
+          <strong>Note:</strong> These data centers may not need 24/7 operation. Even a few hours/year of compute time could suffice for some workloads, making the energy economics even more favorable for space.
+        </div>
+      </div>
+      <button id="math-btn">Show Detailed Math</button>
+    </div>
+    <div style="flex:1;pointer-events:none"></div>
+    <div id="dashboard">
+      <div class="dash-panel">
+        <h4 class="space" id="dash-space-title">SPACE — SSO 600 km</h4>
+        <div class="bar-row"><span class="bar-label">Current</span><div class="bar-track"><div class="bar-fill space" id="sp-cur-bar"></div></div><span class="bar-val" id="sp-cur-val">100%</span></div>
+        <div class="dash-wm2" id="sp-cur-wm2">1,361 W/m²</div>
+        <div class="bar-row"><span class="bar-label">24h Avg</span><div class="bar-track"><div class="bar-fill space" id="sp-day-bar"></div></div><span class="bar-val" id="sp-day-val">—</span></div>
+        <div class="dash-wm2" id="sp-day-wm2"></div>
+        <div class="bar-row"><span class="bar-label">Year Avg</span><div class="bar-track"><div class="bar-fill space" id="sp-yr-bar"></div></div><span class="bar-val" id="sp-yr-val">—</span></div>
+        <div class="dash-wm2" id="sp-yr-wm2"></div>
+        <div class="dash-stats" id="sp-stats"></div>
+      </div>
+      <div class="dash-panel">
+        <h4 class="ground">GROUND — LA 34°N Tracking</h4>
+        <div class="bar-row"><span class="bar-label">Current</span><div class="bar-track"><div class="bar-fill ground" id="gd-cur-bar"></div></div><span class="bar-val" id="gd-cur-val">—</span></div>
+        <div class="dash-wm2" id="gd-cur-wm2"></div>
+        <div class="bar-row"><span class="bar-label">24h Avg</span><div class="bar-track"><div class="bar-fill ground" id="gd-day-bar"></div></div><span class="bar-val" id="gd-day-val">—</span></div>
+        <div class="dash-wm2" id="gd-day-wm2"></div>
+        <div class="bar-row"><span class="bar-label">Year Avg</span><div class="bar-track"><div class="bar-fill ground" id="gd-yr-bar"></div></div><span class="bar-val" id="gd-yr-val">—</span></div>
+        <div class="dash-wm2" id="gd-yr-wm2"></div>
+        <div class="dash-stats" id="gd-stats"></div>
+      </div>
+      <div class="dash-panel">
+        <div class="dash-adv" id="dash-advantage">—</div>
+        <div id="dash-detail"></div>
+      </div>
+    </div>
+  </div>
+  <div id="bottombar">
+    <div id="clock"><div class="time" id="clock-time">12:00 PM</div><div class="date" id="clock-date">Jan 1 · Day 1</div></div>
+  </div>
+</div>
+
+<div id="math-panel"><div id="math-header"><h3>Auditable Math — Orbital Sunlight & Solar Energy</h3><button id="math-close">&times;</button></div><div id="math-content"></div></div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"}}
+</script>
+<script type="module">
+import*as THREE from'three';
+import{OrbitControls}from'three/addons/controls/OrbitControls.js';
+import{CSS2DRenderer,CSS2DObject}from'three/addons/renderers/CSS2DRenderer.js';
+
+// ═══════════════ CONSTANTS ═══════════════
+const Re=6371,mu=398600.4,J2=1.08263e-3,DEG=Math.PI/180,RAD=180/Math.PI;
+const LA_LAT=34;
+const SUN_R=696340/Re,AU=149597870.7/Re;
+const SOLAR_CONST=1361;
+
+// ═══════════════ PHYSICS ═══════════════
+function ssoIncRad(alt){const r=Re+alt,n=Math.sqrt(mu/Math.pow(r,3)),c=-1.991e-7/(1.5*J2*n*Math.pow(Re/r,2));return Math.acos(Math.max(-1,Math.min(1,c)))}
+function orbPeriod(alt){return 2*Math.PI*Math.sqrt(Math.pow(Re+alt,3)/mu)}
+function rhoRad(alt){return Math.asin(Re/(Re+alt))}
+
+function ssoBetaRad(incRad,declDeg){return Math.asin(Math.sin(incRad+declDeg*DEG))}
+function issBetaRad(incDeg,raanOffDeg,declDeg){
+  const s=Math.sin(incDeg*DEG)*Math.cos(declDeg*DEG)*Math.sin(raanOffDeg*DEG)+Math.cos(incDeg*DEG)*Math.sin(declDeg*DEG);
+  return Math.asin(Math.max(-1,Math.min(1,s)));
+}
+function sunlitFrac(beta,rho){
+  if(Math.abs(beta)>=rho)return 1;
+  return 1-Math.acos(Math.cos(rho)/Math.cos(beta))/Math.PI;
+}
+
+// Annual averages (cached)
+let cachedSSOAvg=null,cachedSSOAlt=null;
+function ssoAnnualAvg(alt){
+  if(cachedSSOAlt===alt&&cachedSSOAvg!==null)return cachedSSOAvg;
+  const inc=ssoIncRad(alt),rho=rhoRad(alt);let t=0;
+  for(let d=0;d<365;d++){const decl=23.5*Math.sin(2*Math.PI*(d-80)/365.25);t+=sunlitFrac(ssoBetaRad(inc,decl),rho)}
+  cachedSSOAvg=t/365;cachedSSOAlt=alt;return cachedSSOAvg;
+}
+let cachedISSAvg=null;
+function issAnnualAvg(){
+  if(cachedISSAvg!==null)return cachedISSAvg;
+  const rho=rhoRad(408);let t=0,c=0;
+  for(let d=0;d<365;d++){const decl=23.5*Math.sin(2*Math.PI*(d-80)/365.25);
+    for(let p=0;p<360;p+=5){t+=sunlitFrac(issBetaRad(51.6,p,decl),rho);c++}}
+  cachedISSAvg=t/c;return cachedISSAvg;
+}
+
+// Sun declination from day of year
+function sunDecl(doy){return 23.5*Math.sin(2*Math.PI*(doy-80)/365.25)}
+
+// Ground solar: elevation, air mass, transmittance
+function solarElev(latR,declR,haR){return Math.asin(Math.sin(latR)*Math.sin(declR)+Math.cos(latR)*Math.cos(declR)*Math.cos(haR))}
+function airMass(elev){if(elev<=0)return 999;const ed=elev*RAD;return 1/(Math.sin(elev)+0.50572*Math.pow(ed+6.07995,-1.6364))}
+function atmosTrans(am){return am>38?0:Math.pow(0.7,Math.pow(am,0.678))}
+function groundFlux(latDeg,declDeg,hourOfDay,atmos){
+  const ha=(hourOfDay-12)*15*DEG;
+  const el=solarElev(latDeg*DEG,declDeg*DEG,ha);
+  if(el<=0)return 0;
+  return atmos?SOLAR_CONST*atmosTrans(airMass(el)):SOLAR_CONST;
+}
+function groundDayAvg(latDeg,declDeg,atmos){let t=0;for(let i=0;i<240;i++){t+=groundFlux(latDeg,declDeg,i/10,atmos)}return t/240}
+let cachedGndYrAvg=null,cachedGndYrAtm=null;
+function groundYearAvg(atmos){
+  if(cachedGndYrAtm===atmos&&cachedGndYrAvg!==null)return cachedGndYrAvg;
+  let t=0,c=0;
+  for(let d=0;d<365;d++){const decl=sunDecl(d);for(let h=0;h<24;h+=.5){t+=groundFlux(LA_LAT,decl,h,atmos);c++}}
+  cachedGndYrAvg=t/c/SOLAR_CONST;cachedGndYrAtm=atmos;return cachedGndYrAvg;
+}
+
+// LA monthly weather factors: ratio of actual measured GHI to clear-sky GHI
+// Based on TMY3 data for LA (clouds, haze, marine layer, seasonal fog)
+const LA_WX=[0.70,0.72,0.70,0.74,0.70,0.78,0.87,0.86,0.82,0.75,0.74,0.69];
+function weatherFactor(doy){let d=doy,mi=0;const md=[31,28,31,30,31,30,31,31,30,31,30,31];while(d>=md[mi]&&mi<11){d-=md[mi];mi++}return LA_WX[mi]}
+
+// Ground year avg with weather
+let cachedGndYrWx=null,cachedGndYrWxAtm=null;
+function groundYearAvgWx(atmos){
+  if(cachedGndYrWxAtm===atmos&&cachedGndYrWx!==null)return cachedGndYrWx;
+  let t=0,c=0;
+  for(let d=0;d<365;d++){const decl=sunDecl(d),wf=weatherFactor(d);
+    for(let h=0;h<24;h+=.5){t+=groundFlux(LA_LAT,decl,h,atmos)*wf;c++}}
+  cachedGndYrWx=t/c/SOLAR_CONST;cachedGndYrWxAtm=atmos;return cachedGndYrWx;
+}
+
+// Find full-sun altitude
+function findFullSunAlt(){
+  for(let a=400;a<=3000;a+=5){
+    const rho=rhoRad(a),inc=ssoIncRad(a);
+    const b1=Math.abs(Math.asin(Math.sin(inc+23.5*DEG))),b2=Math.abs(Math.asin(Math.sin(inc-23.5*DEG)));
+    if(Math.min(b1,b2)>=rho)return a;
+  }return null;
+}
+const FULL_SUN_ALT=findFullSunAlt();
+
+// Max eclipse duration (minutes) for SSO at given altitude — worst day of year
+function maxEclipseMinSSO(alt){
+  const rho=rhoRad(alt),inc=ssoIncRad(alt),per=orbPeriod(alt)/60;
+  let maxFrac=0;
+  for(let d=0;d<365;d++){
+    const beta=ssoBetaRad(inc,sunDecl(d));
+    if(Math.abs(beta)<rho){const f=1-sunlitFrac(beta,rho);if(f>maxFrac)maxFrac=f;}
+  }
+  return maxFrac*per;
+}
+// Max eclipse for ISS — worst RAAN + day combo
+function maxEclipseMinISS(){
+  const rho=rhoRad(408),per=orbPeriod(408)/60;
+  let maxFrac=0;
+  for(let d=0;d<365;d++){const decl=sunDecl(d);
+    for(let p=0;p<360;p+=5){const beta=issBetaRad(51.6,p,decl);
+      if(Math.abs(beta)<rho){const f=1-sunlitFrac(beta,rho);if(f>maxFrac)maxFrac=f;}}}
+  return maxFrac*per;
+}
+// Longest night at given latitude (hours) — scans all days
+function longestNightHrs(latDeg){
+  let maxDark=0;
+  for(let d=0;d<365;d++){
+    const decl=sunDecl(d);let dark=0;
+    for(let h=0;h<24;h+=.25){
+      if(solarElev(latDeg*DEG,decl*DEG,(h-12)*15*DEG)<=0)dark+=.25;
+    }
+    if(dark>maxDark)maxDark=dark;
+  }
+  return maxDark;
+}
+
+// ═══════════════ ATMOSPHERE LIMB MODEL ═══════════════
+// For a satellite near the shadow boundary, sunlight grazes Earth's atmosphere.
+// We compute the tangent height of the line-of-sight, then the optical path length
+// through the exponential atmosphere using the Chapman function.
+const H_SCALE=8.5; // atmospheric scale height (km)
+
+// Tangent height (km) of line from satellite toward Sun.
+// px,py,pz: satellite position in Earth-radii units; sd: unit vec toward Sun.
+// Returns Infinity if satellite is on the sun-side (no limb crossing).
+function tangentHeightKm(px,py,pz,sd){
+  const dot=px*sd.x+py*sd.y+pz*sd.z;
+  if(dot>=0)return Infinity; // sun-side — ray goes away from Earth
+  // Cross product gives perpendicular distance to sun-earth line
+  const cx=py*sd.z-pz*sd.y,cy=pz*sd.x-px*sd.z,cz=px*sd.y-py*sd.x;
+  return(Math.sqrt(cx*cx+cy*cy+cz*cz)-1)*Re; // km above surface
+}
+
+// Limb air mass via Chapman function for exponential atmosphere:
+//   AM(h_t) = exp(-h_t/H) × √(2π(R_e + h_t)/H)
+// This is the exact analytical integral of ρ(h)=ρ₀·exp(-h/H) along a ray
+// tangent at height h_t through a spherical atmosphere.
+function limbAirMass(htKm){
+  if(htKm<0)return 9999;if(htKm>150)return 0;
+  return Math.exp(-htKm/H_SCALE)*Math.sqrt(2*Math.PI*(Re+htKm)/H_SCALE);
+}
+
+// Broadband transmittance for limb path, applying Meinel model: T = 0.7^(AM^0.678)
+// The Meinel exponent (0.678) accounts for wavelength-dependent Rayleigh/Mie scattering
+// and molecular absorption averaged across the solar spectrum.
+function limbTransmittance(htKm){
+  if(htKm<0)return 0;
+  const am=limbAirMass(htKm);
+  if(am<1e-4)return 1;
+  return Math.pow(0.7,Math.pow(am,0.678));
+}
+
+// Incident flux (W/m²) at an orbital position, with optional atmosphere.
+// When atmos=false: binary shadow (existing behavior).
+// When atmos=true: smooth penumbra via atmospheric transmittance.
+function spaceFluxAt(px,py,pz,sd,atmos){
+  const dot=px*sd.x+py*sd.y+pz*sd.z;
+  if(dot>=0)return SOLAR_CONST; // sun-side, full flux
+  if(!atmos){return(px*px+py*py+pz*pz-dot*dot)<1?0:SOLAR_CONST;}
+  const cx=py*sd.z-pz*sd.y,cy=pz*sd.x-px*sd.z,cz=px*sd.y-py*sd.x;
+  const htKm=(Math.sqrt(cx*cx+cy*cy+cz*cz)-1)*Re;
+  if(htKm<0)return 0;if(htKm>150)return SOLAR_CONST;
+  const am=Math.exp(-htKm/H_SCALE)*Math.sqrt(2*Math.PI*(Re+htKm)/H_SCALE);
+  if(am<1e-4)return SOLAR_CONST;
+  return SOLAR_CONST*Math.pow(0.7,Math.pow(am,0.678));
+}
+
+// Day-average flux (W/m²) via numerical orbit integration (360 points)
+function spaceDayFlux(alt,incR,raanR,declDeg,atmos){
+  const sd=getSunDir(declDeg),r=1+alt/Re,N=360;
+  const ci=Math.cos(incR),si=Math.sin(incR),co=Math.cos(raanR),so=Math.sin(raanR);
+  let tot=0;
+  for(let j=0;j<N;j++){
+    const th=j/N*Math.PI*2,x1=r*Math.cos(th),z1=r*Math.sin(th);
+    const y2=-z1*si,z2=z1*ci;
+    tot+=spaceFluxAt(x1*co+z2*so,y2,-x1*so+z2*co,sd,atmos);
+  }
+  return tot/N;
+}
+
+// Cached annual averages with atmosphere toggle
+let cSSOYr=null,cSSOYrAlt=null,cSSOYrAtm=null;
+function ssoYearAvgAtmos(alt,atmos){
+  if(cSSOYrAlt===alt&&cSSOYrAtm===atmos&&cSSOYr!==null)return cSSOYr;
+  const inc=ssoIncRad(alt);let t=0;
+  for(let d=0;d<365;d++)t+=spaceDayFlux(alt,inc,ssoRaan,sunDecl(d),atmos);
+  cSSOYr=t/365/SOLAR_CONST;cSSOYrAlt=alt;cSSOYrAtm=atmos;return cSSOYr;
+}
+let cISSYr=null,cISSYrAtm=null;
+function issYearAvgAtmos(atmos){
+  if(cISSYrAtm===atmos&&cISSYr!==null)return cISSYr;
+  let t=0,c=0;
+  for(let d=0;d<365;d++){const decl=sunDecl(d);
+    for(let p=0;p<360;p+=10){t+=spaceDayFlux(408,51.6*DEG,p*DEG,decl,atmos);c++;}}
+  cISSYr=t/c/SOLAR_CONST;cISSYrAtm=atmos;return cISSYr;
+}
+
+// ═══════════════ NOISE & TEXTURES ═══════════════
+function h3(a,b,c){let n=Math.imul(a,374761393)+Math.imul(b,668265263)+Math.imul(c,1274126177);n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0&0x7fffffff)/0x7fffffff}
+function sm(t){return t*t*(3-2*t)}
+function n3(x,y,z){const ix=Math.floor(x),iy=Math.floor(y),iz=Math.floor(z),fx=sm(x-ix),fy=sm(y-iy),fz=sm(z-iz),m=(a,b,t)=>a+(b-a)*t;return m(m(m(h3(ix,iy,iz),h3(ix+1,iy,iz),fx),m(h3(ix,iy+1,iz),h3(ix+1,iy+1,iz),fx),fy),m(m(h3(ix,iy,iz+1),h3(ix+1,iy,iz+1),fx),m(h3(ix,iy+1,iz+1),h3(ix+1,iy+1,iz+1),fx),fy),fz)*2-1}
+function fbm(x,y,z,o=5){let v=0,a=.5,f=1;for(let i=0;i<o;i++){v+=n3(x*f,y*f,z*f)*a;a*=.5;f*=2}return v}
+
+// Texture loader for real NASA imagery
+const txLoad=new THREE.TextureLoader();
+const earthDayTex=txLoad.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+const earthBumpTex=txLoad.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+const earthSpecTex=txLoad.load('https://unpkg.com/three-globe/example/img/earth-water.png');
+const cloudTex=txLoad.load('https://unpkg.com/three-globe/example/img/earth-clouds.png');
+
+function makeGlow(c1,c2){const cv=document.createElement('canvas');cv.width=256;cv.height=256;const cx=cv.getContext('2d'),g=cx.createRadialGradient(128,128,0,128,128,128);g.addColorStop(0,c1);g.addColorStop(.3,c2);g.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=g;cx.fillRect(0,0,256,256);return cv}
+
+// ═══════════════ RENDERER ═══════════════
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.autoClear=false;
+document.body.prepend(renderer.domElement);
+const labelRenderer=new CSS2DRenderer();
+labelRenderer.setSize(innerWidth,innerHeight);Object.assign(labelRenderer.domElement.style,{position:'absolute',top:'0',pointerEvents:'none'});
+document.body.appendChild(labelRenderer.domElement);
+
+const scene=new THREE.Scene(),starScene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.005,500);
+const starCam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,100,300000);
+camera.position.set(0,1.2,3.2);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=.06;
+
+scene.add(new THREE.AmbientLight(0x111122,.4));
+const sunLight=new THREE.DirectionalLight(0xfffae8,2.5);sunLight.position.set(100,30,50);scene.add(sunLight);
+
+// Stars
+{const N=5000,p=new Float32Array(N*3);for(let i=0;i<N;i++){const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=80000;p[i*3]=r*Math.sin(ph)*Math.cos(th);p[i*3+1]=r*Math.sin(ph)*Math.sin(th);p[i*3+2]=r*Math.cos(ph)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));starScene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:.7,sizeAttenuation:false})))}
+
+// ═══════════════ SCENE STRUCTURE ═══════════════
+// earthBody: mesh + clouds + atmos (rotates in sun-fixed mode)
+// inertialFrame: orbits, sats, shadow (counter-rotates in earth-fixed mode)
+const earthBody=new THREE.Group();scene.add(earthBody);
+const inertialFrame=new THREE.Group();scene.add(inertialFrame);
+
+const earthMesh=new THREE.Mesh(new THREE.SphereGeometry(1,64,48),
+  new THREE.MeshPhongMaterial({map:earthDayTex,bumpMap:earthBumpTex,bumpScale:.015,specularMap:earthSpecTex,specular:new THREE.Color(0x222233),shininess:20}));
+earthBody.add(earthMesh);
+const cloudMesh=new THREE.Mesh(new THREE.SphereGeometry(1.006,64,48),new THREE.MeshPhongMaterial({map:cloudTex,transparent:true,opacity:.35,depthWrite:false}));
+earthBody.add(cloudMesh);
+const atmosMesh=new THREE.Mesh(new THREE.SphereGeometry(1.025,64,32),
+  new THREE.ShaderMaterial({vertexShader:`varying vec3 vN,vV;void main(){vec4 w=modelMatrix*vec4(position,1.);vN=normalize((modelMatrix*vec4(normal,0.)).xyz);vV=normalize(cameraPosition-w.xyz);gl_Position=projectionMatrix*viewMatrix*w;}`,
+    fragmentShader:`varying vec3 vN,vV;void main(){float f=dot(vN,vV);float r=pow(1.0+f,3.0)*1.2;gl_FragColor=vec4(.3,.6,1.,r*.7);}`,transparent:true,side:THREE.BackSide,depthWrite:false}));
+earthBody.add(atmosMesh);
+
+// LA ground panel marker (34°N, visible on Earth surface)
+const laLatR=34*DEG,laR=1.018;
+const laMarker=new THREE.Group();
+const laDot=new THREE.Mesh(new THREE.SphereGeometry(.018,12,8),new THREE.MeshBasicMaterial({color:0xff6633,depthTest:false}));laDot.renderOrder=1;
+laMarker.add(laDot);
+const laGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(255,160,60,.9)','rgba(255,100,30,.2)')),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,depthTest:false}));
+laGlow.scale.set(.14,.14,1);laGlow.renderOrder=1;laMarker.add(laGlow);
+// Position: lat=34°N, lon=0 (rotates with Earth)
+laMarker.position.set(0,laR*Math.sin(laLatR),laR*Math.cos(laLatR));
+earthMesh.add(laMarker);
+// Latitude ring at 34°N (always visible regardless of rotation)
+{const pts=[];const ringR=1.006*Math.cos(laLatR),ringY=1.006*Math.sin(laLatR);
+for(let i=0;i<=128;i++){const a=i/128*Math.PI*2;pts.push(new THREE.Vector3(ringR*Math.cos(a),ringY,ringR*Math.sin(a)))}
+const latRing=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xff8844,transparent:true,opacity:.3}));
+earthMesh.add(latRing);}
+
+// Sun (for scale toggle and solar view)
+const sunGroup=new THREE.Group();sunGroup.visible=false;scene.add(sunGroup);
+{const cv=document.createElement('canvas');cv.width=512;cv.height=256;const cx=cv.getContext('2d'),im=cx.createImageData(512,256),d=im.data;
+for(let y=0;y<256;y++){const lat=((y/256)-.5)*Math.PI,cl=Math.cos(lat),sl=Math.sin(lat);for(let x=0;x<512;x++){const lon=(x/512)*Math.PI*2,n=fbm(cl*Math.cos(lon)*6+50,sl*6+50,cl*Math.sin(lon)*6+50,4);const b=.85+n*.15,i=(y*512+x)*4;d[i]=Math.min(255,b*255);d[i+1]=Math.min(255,b*210);d[i+2]=Math.min(255,b*90);d[i+3]=255}}cx.putImageData(im,0,0);
+sunGroup.add(new THREE.Mesh(new THREE.SphereGeometry(SUN_R,64,48),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv)})))}
+const sunGlowSp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(255,220,80,.5)','rgba(255,150,30,.15)')),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+sunGlowSp.scale.set(SUN_R*2.5,SUN_R*2.5,1);sunGroup.add(sunGlowSp);
+
+// Sun direction indicator
+const sunInd=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(255,240,150,.9)','rgba(255,180,50,.3)')),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+sunInd.scale.set(.35,.35,1);inertialFrame.add(sunInd);
+
+// Solar markers for solar view
+const sunMkr=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(255,220,80,.9)','rgba(255,150,30,.3)')),transparent:true,depthWrite:false,sizeAttenuation:false}));
+sunMkr.scale.set(.04,.04,1);sunMkr.visible=false;scene.add(sunMkr);
+const earthMkr=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(80,150,255,.9)','rgba(40,100,255,.3)')),transparent:true,depthWrite:false,sizeAttenuation:false}));
+earthMkr.scale.set(.04,.04,1);earthMkr.visible=false;scene.add(earthMkr);
+
+// Shadow cylinder
+const shadowCyl=new THREE.Mesh(new THREE.CylinderGeometry(.998,.99,20,48,1,true),new THREE.MeshBasicMaterial({color:0x000015,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false}));
+inertialFrame.add(shadowCyl);
+
+// LEO shell
+const leoShell=new THREE.Mesh(new THREE.SphereGeometry(1+2000/Re,48,32),new THREE.MeshBasicMaterial({color:0x50c8ff,transparent:true,opacity:.04,depthWrite:false,side:THREE.DoubleSide}));
+inertialFrame.add(leoShell);
+
+// ═══════════════ ORBITS ═══════════════
+const OSEG=512;
+function makeOrbit(radius,incR,raanR){
+  const pos=new Float32Array((OSEG+1)*3),col=new Float32Array((OSEG+1)*3);
+  const ci=Math.cos(incR),si=Math.sin(incR),co=Math.cos(raanR),so=Math.sin(raanR);
+  for(let i=0;i<=OSEG;i++){const th=i/OSEG*Math.PI*2,x1=radius*Math.cos(th),z1=radius*Math.sin(th);
+    const x2=x1,y2=-z1*si,z2=z1*ci,x3=x2*co+z2*so,y3=y2,z3=-x2*so+z2*co;
+    pos[i*3]=x3;pos[i*3+1]=y3;pos[i*3+2]=z3;col[i*3]=1;col[i*3+1]=.85;col[i*3+2]=.2}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  return new THREE.Line(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.7}));
+}
+function updateOrbitColors(line,sd){
+  const p=line.geometry.attributes.position,c=line.geometry.attributes.color;
+  for(let i=0;i<p.count;i++){
+    const x=p.getX(i),y=p.getY(i),z=p.getZ(i),dot=x*sd.x+y*sd.y+z*sd.z;
+    let f; // fraction of full sunlight (0=shadow, 1=full sun)
+    if(dot>=0){f=1}
+    else if(!atmosOn){f=(x*x+y*y+z*z-dot*dot)<1?0:1}
+    else{
+      const cx2=y*sd.z-z*sd.y,cy2=z*sd.x-x*sd.z,cz2=x*sd.y-y*sd.x;
+      const ht=(Math.sqrt(cx2*cx2+cy2*cy2+cz2*cz2)-1)*Re;
+      if(ht<0)f=0;else if(ht>150)f=1;
+      else{const am=Math.exp(-ht/H_SCALE)*Math.sqrt(2*Math.PI*(Re+ht)/H_SCALE);
+        f=am<1e-4?1:Math.pow(0.7,Math.pow(am,0.678));}
+    }
+    // Sunlit: gold (.95,.82,.15); penumbra: orange; shadow: dark blue (.1,.1,.35)
+    c.setXYZ(i,.1+f*.85,.1+f*.72,.35-f*.2);
+  }
+  c.needsUpdate=true;
+}
+
+// SSO orbit (rebuilt when altitude changes)
+let ssoAlt=600,ssoR=1+ssoAlt/Re,ssoIncR=ssoIncRad(ssoAlt),ssoRaan=90*DEG;
+let ssoOrbit=makeOrbit(ssoR,ssoIncR,ssoRaan);inertialFrame.add(ssoOrbit);
+// ISS orbit
+const issOrbit=makeOrbit(1+408/Re,51.6*DEG,0);issOrbit.visible=false;inertialFrame.add(issOrbit);
+// GEO orbit
+const geoR=1+35786/Re;
+const geoOrbit=new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({length:OSEG+1},(_,i)=>{const a=i/OSEG*Math.PI*2;return new THREE.Vector3(Math.cos(a)*geoR,0,Math.sin(a)*geoR)})),new THREE.LineBasicMaterial({color:0xffbb33,transparent:true,opacity:.4}));
+geoOrbit.visible=false;inertialFrame.add(geoOrbit);
+
+function rebuildSSOOrbit(){
+  inertialFrame.remove(ssoOrbit);ssoOrbit.geometry.dispose();
+  ssoR=1+ssoAlt/Re;ssoIncR=ssoIncRad(ssoAlt);
+  ssoOrbit=makeOrbit(ssoR,ssoIncR,ssoRaan);inertialFrame.add(ssoOrbit);
+  ssoOrbit.visible=activeSat==='sso'&&currentView!=='solar';
+}
+
+// ═══════════════ SATELLITES ═══════════════
+function makeSolarPanel(){
+  const g=new THREE.Group(),bus=new THREE.Mesh(new THREE.BoxGeometry(.02,.02,.02),new THREE.MeshPhongMaterial({color:0x888888}));g.add(bus);
+  const pg=new THREE.BoxGeometry(.08,.002,.025),pm=new THREE.MeshPhongMaterial({color:0x1a237e,specular:0x4444ff,shininess:80,emissive:0x080820});
+  const lp=new THREE.Mesh(pg,pm);lp.position.x=-.06;g.add(lp);const rp=new THREE.Mesh(pg,pm);rp.position.x=.06;g.add(rp);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(100,200,255,.7)','rgba(60,120,200,.2)')),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+  sp.scale.set(.18,.18,1);g.add(sp);return g;
+}
+const solarArray=makeSolarPanel();inertialFrame.add(solarArray);
+const issSat=new THREE.Mesh(new THREE.SphereGeometry(.018,8,8),new THREE.MeshBasicMaterial({color:0xffffff}));
+{const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(100,200,255,.8)','rgba(255,255,255,.1)')),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));sp.scale.set(.12,.12,1);issSat.add(sp)}
+issSat.visible=false;inertialFrame.add(issSat);
+const geoSats=[];for(let i=0;i<3;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.012,8,8),new THREE.MeshBasicMaterial({color:0xffcc55}));const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(makeGlow('rgba(255,200,80,.6)','rgba(255,255,255,.1)')),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));sp.scale.set(.08,.08,1);m.add(sp);m.visible=false;inertialFrame.add(m);geoSats.push(m)}
+
+// ═══════════════ LABELS ═══════════════
+function mkL(t,c='#aab',s='10px'){const d=document.createElement('div');d.className='label3d';d.textContent=t;d.style.color=c;d.style.fontSize=s;const o=new CSS2DObject(d);o.visible=false;return o}
+const labels={
+  satStatus:mkL('','#6fc','10px'),sunDir:mkL('Sun','#ffdd66','10px'),
+  geoLabel:mkL('GEO · 35,786 km','#ffcc44','10px'),
+  solarSun:mkL('Sun','#ffdd66','12px'),solarEarth:mkL('Earth','#88bbff','12px'),
+  solarDist:mkL('1 AU = 149.6 million km','rgba(255,255,255,.45)','10px'),
+  laLabel:mkL('LA 34°N','#fa5','11px'),
+};
+for(const l of Object.values(labels))scene.add(l);
+
+// ═══════════════ STATE ═══════════════
+let activeSat='sso',currentView='leo',frameMode='sun';
+let simTime=6*3600; // start at 6 AM LA time
+let speedMode='day',timeScale=600;
+const SPEED_DAY=600;
+let showSunScale=false,atmosOn=true,weatherOn=true;
+let transitioning=false,transProg=0;
+let fromCam=new THREE.Vector3(),toCam=new THREE.Vector3(),fromTgt=new THREE.Vector3(),toTgt=new THREE.Vector3();
+let fromNear=.005,toNear,fromFar=50,toFar;
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
+
+function getSunDir(decl){return new THREE.Vector3(Math.cos(decl*DEG),Math.sin(decl*DEG),0)}
+function isInShadow(pos,sd){const dot=pos.x*sd.x+pos.y*sd.y+pos.z*sd.z;return dot<0&&(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z-dot*dot)<1}
+function orbitPos(radius,incR,raanR,theta){
+  const ci=Math.cos(incR),si=Math.sin(incR),co=Math.cos(raanR),so=Math.sin(raanR);
+  const x1=radius*Math.cos(theta),z1=radius*Math.sin(theta);
+  const x2=x1,y2=-z1*si,z2=z1*ci;
+  return new THREE.Vector3(x2*co+z2*so,y2,-x2*so+z2*co);
+}
+
+// ═══════════════ VIEW SYSTEM ═══════════════
+const viewCfg={
+  leo:{cam:[0,1.2,3.2],tgt:[0,0,0],near:.005,far:50},
+  compare:{cam:[4,7,15],tgt:[0,0,0],near:.05,far:200},
+  solar:{cam:[AU*.5,AU*.08,AU*.35],tgt:[AU*.5,0,0],near:50,far:AU*2},
+  sunscale:{cam:[SUN_R*.5,SUN_R*.35,SUN_R*1.1],tgt:[SUN_R*.5,0,0],near:.5,far:SUN_R*5},
+  sunpov:{cam:[6,0,0],tgt:[0,0,0],near:.005,far:50}, // looking from Sun direction at Earth
+};
+
+function setView(name,instant){
+  currentView=name;
+  document.querySelectorAll('.vb').forEach(b=>b.classList.toggle('active',b.dataset.v===name));
+  let key=showSunScale&&name==='leo'?'sunscale':name;
+  // Sun POV: place camera along current sun direction
+  if(name==='sunpov'){
+    const doy=(simTime/86400)%365.25,d=sunDecl(doy);
+    const sd=getSunDir(d);
+    viewCfg.sunpov.cam=[sd.x*5,sd.y*5+.3,sd.z*5];
+    viewCfg.sunpov.tgt=[0,0,0];
+  }
+  const v=viewCfg[key]||viewCfg.leo;
+
+  if(!instant){
+    fromCam.copy(camera.position);fromTgt.copy(controls.target);
+    toCam.set(...v.cam);toTgt.set(...v.tgt);
+    fromNear=camera.near;toNear=v.near;fromFar=camera.far;toFar=v.far;
+    transProg=0;transitioning=true;controls.enabled=false;
+  }else{camera.position.set(...v.cam);controls.target.set(...v.tgt);camera.near=v.near;camera.far=v.far;camera.updateProjectionMatrix()}
+
+  // Visibility
+  const isLeo=name==='leo'||name==='compare'||name==='sunpov';
+  sunGroup.visible=(showSunScale&&name==='leo')||name==='solar';
+  sunGroup.position.set(name==='solar'?AU:SUN_R*1.3,0,0);
+  sunInd.visible=isLeo&&!showSunScale&&name!=='sunpov';
+  shadowCyl.visible=isLeo;
+  leoShell.visible=name==='leo'&&!showSunScale;
+  geoOrbit.visible=name==='compare';
+  geoSats.forEach(s=>s.visible=name==='compare');
+  sunMkr.visible=name==='solar';earthMkr.visible=name==='solar';
+  atmosMesh.visible=name!=='solar';cloudMesh.visible=name!=='solar';
+  updateSatVis();
+  // Labels
+  for(const l of Object.values(labels))l.visible=false;
+  if(isLeo){labels.satStatus.visible=true;labels.sunDir.visible=!showSunScale&&name!=='sunpov'}
+  if(name==='sunpov'){labels.laLabel.visible=true}
+  if(name==='compare'){labels.geoLabel.visible=true;labels.geoLabel.position.set(0,geoR+.5,0);labels.sunDir.visible=true}
+  if(name==='solar'){labels.solarSun.visible=true;labels.solarEarth.visible=true;labels.solarDist.visible=true;
+    labels.solarSun.position.set(AU,AU*.03,0);labels.solarEarth.position.set(0,AU*.03,0);labels.solarDist.position.set(AU*.5,AU*.015,0)}
+}
+
+function updateSatVis(){
+  const isLeo=currentView==='leo'||currentView==='compare'||currentView==='sunpov';
+  ssoOrbit.visible=isLeo&&activeSat==='sso';
+  issOrbit.visible=isLeo&&activeSat==='iss';
+  solarArray.visible=isLeo&&activeSat==='sso';
+  issSat.visible=isLeo&&activeSat==='iss';
+}
+
+// ═══════════════ DASHBOARD ═══════════════
+function setBar(id,pct,wm2){
+  document.getElementById(id+'-bar').style.width=Math.max(0,Math.min(100,pct))+'%';
+  document.getElementById(id+'-val').textContent=pct<0?'—':pct.toFixed(1)+'%';
+  document.getElementById(id+'-wm2').textContent=wm2!==undefined?(wm2.toFixed(0)+' W/m²'):'';
+}
+
+function updateDashboard(sunDir){
+  const doy=(simTime/86400)%365.25,laHour=(simTime/3600)%24;
+  const decl=sunDecl(doy);
+  const alt=activeSat==='sso'?ssoAlt:408;
+  const inc=activeSat==='sso'?ssoIncR:51.6*DEG;
+  const raan=activeSat==='sso'?ssoRaan:((simTime/86400)*5%360)*DEG;
+  const satPos=activeSat==='sso'?solarArray.position:issSat.position;
+
+  // Space current — flux at actual 3D position
+  const spCurW=spaceFluxAt(satPos.x,satPos.y,satPos.z,sunDir,atmosOn);
+  const spCur=spCurW/SOLAR_CONST*100;
+  setBar('sp-cur',spCur,spCurW);
+
+  // Space day avg — integrate around orbit
+  const spDayW=spaceDayFlux(alt,inc,raan,decl,atmosOn);
+  const spDay=spDayW/SOLAR_CONST*100;
+  setBar('sp-day',spDay,spDayW);
+
+  // Space year avg (cached)
+  const spYr=(activeSat==='sso'?ssoYearAvgAtmos(ssoAlt,atmosOn):issYearAvgAtmos(atmosOn))*100;
+  setBar('sp-yr',spYr,SOLAR_CONST*spYr/100);
+
+  // Ground current (apply weather factor if on)
+  const wf=weatherOn?weatherFactor(doy):1;
+  const gdCurW=groundFlux(LA_LAT,decl,laHour,atmosOn)*wf;
+  const gdCur=gdCurW/SOLAR_CONST*100;
+  setBar('gd-cur',gdCur,gdCurW);
+  // Ground day avg
+  const gdDayW=groundDayAvg(LA_LAT,decl,atmosOn)*wf;
+  setBar('gd-day',gdDayW/SOLAR_CONST*100,gdDayW);
+  // Ground year avg
+  const gdYrRaw=weatherOn?groundYearAvgWx(atmosOn):groundYearAvg(atmosOn);
+  const gdYr=gdYrRaw*100;
+  setBar('gd-yr',gdYr,SOLAR_CONST*gdYr/100);
+
+  // Space stats: max eclipse, annual kWh/m², storage needed
+  const spMaxEcl=activeSat==='sso'?maxEclipseMinSSO(ssoAlt):maxEclipseMinISS();
+  const spAvgW=SOLAR_CONST*spYr/100;
+  const spKwh=spAvgW*8760/1000;
+  const spStorageWh=spAvgW*(spMaxEcl/60); // Wh/m² needed to bridge eclipse
+  const spEclStr=spMaxEcl<0.1?'None (100% sunlit)':`${spMaxEcl.toFixed(1)} min (${(spMaxEcl/60).toFixed(2)} hrs)`;
+  const spStorStr=spMaxEcl<0.1?'0':`${spStorageWh.toFixed(0)}`;
+  document.getElementById('sp-stats').innerHTML=`Max shadow: <span>${spEclStr}</span><br>Storage to bridge: <span>${spStorStr} Wh/m²</span><br>Annual: <span class="kwh">${spKwh.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} kWh/m²</span><br><span style="color:#668;font-style:italic">No weather in orbit. May not need 24/7 — even hours/yr of compute can suffice.</span>`;
+
+  // Ground stats: longest night, annual kWh/m², storage needed
+  const gdNight=longestNightHrs(LA_LAT);
+  const gdAvgW=SOLAR_CONST*gdYr/100;
+  const gdKwh=gdAvgW*8760/1000;
+  const gdStorageWh=gdAvgW*gdNight; // Wh/m² needed to bridge longest night
+  const wxLabel=weatherOn?'With weather':'Clear sky only';
+  document.getElementById('gd-stats').innerHTML=`Longest night: <span>${gdNight.toFixed(1)} hrs</span><br>Storage to bridge: <span>${gdStorageWh.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} Wh/m²</span><br>Annual: <span class="kwh">${gdKwh.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')} kWh/m²</span><br><span style="color:#776;font-style:italic">${wxLabel}. Ground needs massive storage or grid backup for night.</span>`;
+
+  // Advantage
+  const adv=spYr>0&&gdYr>0?(spYr/gdYr).toFixed(1)+'×':'—';
+  document.getElementById('dash-advantage').textContent=`Space advantage: ${adv} annual avg`;
+  const atmNote=atmosOn?' · Atmos ON':'· Atmos OFF';
+  const wxNote=weatherOn?' · Weather ON':' · Weather OFF';
+  document.getElementById('dash-detail').textContent=`100% = 1,361 W/m² (perfect capture) ${atmNote}${wxNote}`;
+  document.getElementById('dash-space-title').textContent=`SPACE — ${activeSat==='sso'?'SSO':'ISS'} ${alt} km`;
+}
+
+// ═══════════════ CLOCK ═══════════════
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MDAYS=[31,28,31,30,31,30,31,31,30,31,30,31];
+function updateClock(){
+  const laH=(simTime/3600)%24,doy=Math.floor((simTime/86400)%365.25);
+  const h=Math.floor(laH),m=Math.floor((laH-h)*60),s=Math.floor(((laH-h)*60-m)*60);
+  const ampm=h>=12?'PM':'AM',h12=h%12||12;
+  document.getElementById('clock-time').textContent=`LA: ${h12}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${ampm}`;
+  let d=doy,mi=0;while(d>=MDAYS[mi]&&mi<11){d-=MDAYS[mi];mi++}
+  const decl=sunDecl(doy);
+  let season='';if(Math.abs(decl)>22)season=decl>0?' · Summer Solstice':' · Winter Solstice';
+  else if(Math.abs(decl)<1.5)season=doy<180?' · Spring Equinox':' · Fall Equinox';
+  document.getElementById('clock-date').textContent=`${MONTHS[mi]} ${d+1} · Day ${doy+1}/365${season}`;
+}
+
+// ═══════════════ MATH PANEL ═══════════════
+function updateMath(){
+  const alt=activeSat==='sso'?ssoAlt:408;
+  const inc=activeSat==='sso'?ssoIncR*RAD:51.6;
+  const rho=rhoRad(alt);const r=Re+alt;
+  const per=orbPeriod(alt);
+  const doy=(simTime/86400)%365.25,decl=sunDecl(doy);
+  const beta=activeSat==='sso'?ssoBetaRad(ssoIncR,decl):issBetaRad(51.6,0,decl);
+  const sl=sunlitFrac(beta,rho);
+  const avgSl=activeSat==='sso'?ssoAnnualAvg(ssoAlt):issAnnualAvg();
+  const spYrAtm=activeSat==='sso'?ssoYearAvgAtmos(ssoAlt,true):issYearAvgAtmos(true);
+  const spYrNoAtm=activeSat==='sso'?ssoYearAvgAtmos(ssoAlt,false):issYearAvgAtmos(false);
+  const eq=t=>`<span class="eq">${t}</span>`,res=t=>`<span class="result">${t}</span>`;
+
+  const eclipseDetail=Math.abs(beta)<rho
+    ?`|β| = ${(Math.abs(beta)*RAD).toFixed(1)}° < ρ = ${(rho*RAD).toFixed(1)}° → Eclipse occurs
+${eq(`θ = arccos(cos(${(rho*RAD).toFixed(1)}°)/cos(${(Math.abs(beta)*RAD).toFixed(1)}°)) = ${(Math.acos(Math.cos(rho)/Math.cos(beta))*RAD).toFixed(1)}°`)}
+${eq(`Eclipse fraction = θ/π = ${((1-sl)*100).toFixed(1)}%`)}`
+    :`|β| = ${(Math.abs(beta)*RAD).toFixed(1)}° ≥ ρ = ${(rho*RAD).toFixed(1)}° → ${res('No eclipse — 100% sunlit')}`;
+
+  // Atmosphere limb example values for current satellite position
+  const satPos=activeSat==='sso'?solarArray.position:issSat.position;
+  const sd=getSunDir(decl);
+  const curHt=tangentHeightKm(satPos.x,satPos.y,satPos.z,sd);
+  const curAM=curHt!==Infinity&&curHt>=0?limbAirMass(curHt):0;
+  const curT=curHt===Infinity?1:curHt<0?0:limbTransmittance(curHt);
+
+  document.getElementById('math-content').innerHTML=`
+<div class="msec"><div class="mt">1. Orbital Parameters</div>
+${eq(`Altitude h = ${alt} km, r = ${r.toLocaleString()} km`)}
+${eq(`Period T = 2π√(r³/μ) = ${per.toFixed(0)} s = ${(per/60).toFixed(1)} min`)}
+${eq(`Inclination i = ${inc.toFixed(2)}°${activeSat==='sso'?' (SSO dawn-dusk, LTAN 18:00)':''}`)}
+</div>
+<div class="msec"><div class="mt">2. Shadow Geometry</div>
+${eq(`ρ = arcsin(R_e/r) = arcsin(${Re}/${r}) = ${(rho*RAD).toFixed(2)}°`)}
+The satellite is in Earth's shadow when behind Earth (dot product with Sun &lt; 0) AND within the shadow cylinder (perpendicular distance &lt; R_e).
+</div>
+<div class="msec"><div class="mt">3. Beta Angle</div>
+${activeSat==='sso'
+?`For SSO with LTAN=18:00 (Ω = α☉ + 90°):
+${eq(`sin(β) = sin(i)·cos(δ)·sin(Ω−α☉) + cos(i)·sin(δ) = sin(i + δ☉)`)}
+${eq(`i + δ☉ = ${inc.toFixed(1)}° + (${decl.toFixed(1)}°) = ${(inc+decl).toFixed(1)}°`)}
+${eq(`sin(${(inc+decl).toFixed(1)}°) = ${Math.sin((inc+decl)*DEG).toFixed(4)}`)}
+${eq(`β = arcsin(${Math.sin((inc+decl)*DEG).toFixed(4)}) = ${(Math.abs(beta)*RAD).toFixed(1)}°`)}
+<br>Annual range (arcsin maps all values back to [−90°, +90°]):
+${eq(`Summer solstice: i+δ = ${inc.toFixed(1)}°+23.5° = ${(inc+23.5).toFixed(1)}° → sin = ${Math.sin((inc+23.5)*DEG).toFixed(4)} → |β| = ${(Math.asin(Math.abs(Math.sin((inc+23.5)*DEG)))*RAD).toFixed(1)}° (min)`)}
+${eq(`Equinox: i+δ = ${inc.toFixed(1)}°+0° → sin = ${Math.sin(inc*DEG).toFixed(4)} → |β| = ${(Math.asin(Math.abs(Math.sin(inc*DEG)))*RAD).toFixed(1)}°`)}
+${eq(`Winter solstice: i+δ = ${inc.toFixed(1)}°−23.5° = ${(inc-23.5).toFixed(1)}° → sin = ${Math.sin((inc-23.5)*DEG).toFixed(4)} → |β| = ${(Math.asin(Math.abs(Math.sin((inc-23.5)*DEG)))*RAD).toFixed(1)}° (max)`)}`
+:`ISS is NOT sun-synchronous. RAAN drifts ~5°/day.
+${eq(`sin(β) = sin(i)·cos(δ)·sin(Ω−α☉) + cos(i)·sin(δ)`)}`}
+</div>
+<div class="msec"><div class="mt">4. Current Sunlit Fraction</div>
+${(()=>{let dd=Math.floor(doy),mi2=0;while(dd>=MDAYS[mi2]&&mi2<11){dd-=MDAYS[mi2];mi2++}return eq(`δ☉ = ${decl.toFixed(1)}° (${MONTHS[mi2]} ${dd+1}, day ${Math.floor(doy)+1}/365)`)})()}\n${eclipseDetail}
+${eq(res(`Geometric sunlit = ${(sl*100).toFixed(1)}%  →  ${(SOLAR_CONST*sl).toFixed(0)} W/m²`))}
+</div>
+<div class="msec"><div class="mt">5. Atmospheric Limb Attenuation (Space Panel)</div>
+Near the shadow boundary, the satellite's line-of-sight to the Sun grazes Earth's atmosphere. The light path passes through a chord of the atmosphere, reducing flux.
+<br><br><strong>Tangent height</strong> h<sub>t</sub> = closest approach of the Sun ray to Earth's surface:
+${eq(`d_⊥ = |r̄_sat × ŝ_sun|  (perpendicular distance to Earth-Sun line)`)}
+${eq(`h_t = (d_⊥ − R_e)  [km above surface]`)}
+If satellite is on the Sun-side (r̄·ŝ ≥ 0), ray doesn't approach Earth → h<sub>t</sub> = ∞, no attenuation.
+<br><br><strong>Limb air mass</strong> via Chapman function (exact for exponential atmosphere ρ = ρ₀·e<sup>−h/H</sup>):
+${eq(`AM_limb(h_t) = exp(−h_t/H) × √(2π(R_e + h_t)/H)`)}
+${eq(`H = ${H_SCALE} km (atmospheric scale height)`)}
+This integrates density along the full chord through the spherical atmosphere at tangent height h<sub>t</sub>.
+<br><br><strong>Broadband transmittance</strong> using Meinel clear-sky model:
+${eq(`T = 0.7^(AM^0.678)`)}
+The 0.678 exponent accounts for wavelength-dependent Rayleigh/Mie scattering and molecular absorption averaged over the solar spectrum.
+<br><br><strong>Current satellite:</strong>
+${curHt===Infinity?eq(`Sun-side → h_t = ∞ → T = 1.000 (full flux, no limb passage)`):
+  curHt<0?eq(`Geometric shadow → h_t = ${curHt.toFixed(1)} km (below surface) → T = 0`):
+  eq(`h_t = ${curHt.toFixed(1)} km → AM = ${curAM.toFixed(2)} → T = ${curT.toFixed(4)} → ${(curT*SOLAR_CONST).toFixed(0)} W/m²`)}
+<br><strong>Example tangent heights:</strong>
+${eq(`h_t = 0 km:  AM = ${limbAirMass(0).toFixed(1)},  T = ${limbTransmittance(0).toFixed(4)}  (surface tangent — opaque)`)}
+${eq(`h_t = 20 km: AM = ${limbAirMass(20).toFixed(1)},  T = ${limbTransmittance(20).toFixed(3)}`)}
+${eq(`h_t = 40 km: AM = ${limbAirMass(40).toFixed(2)}, T = ${limbTransmittance(40).toFixed(3)}`)}
+${eq(`h_t = 60 km: AM = ${limbAirMass(60).toFixed(3)}, T = ${limbTransmittance(60).toFixed(3)}`)}
+${eq(`h_t = 80 km: AM = ${limbAirMass(80).toFixed(4)}, T = ${limbTransmittance(80).toFixed(4)}`)}
+<div class="note">The penumbra transition (0→100% transmittance) spans ~80 km of tangent height, corresponding to ~0.7° of orbital angle (~12 seconds of orbital motion). Impact on averages is small but physically correct.</div>
+</div>
+<div class="msec"><div class="mt">6. Annual Averages — Space vs Ground</div>
+${eq(`Space (no atmos):  ${(spYrNoAtm*100).toFixed(2)}% → ${(SOLAR_CONST*spYrNoAtm).toFixed(0)} W/m²`)}
+${eq(`Space (with atmos): ${(spYrAtm*100).toFixed(2)}% → ${(SOLAR_CONST*spYrAtm).toFixed(0)} W/m²`)}
+${eq(`Atmosphere penalty: −${((spYrNoAtm-spYrAtm)*100).toFixed(3)}% (limb absorption near shadow boundary)`)}
+<br>Ground panel (LA 34°N, sun-tracking, clear sky):
+${eq(`Atmospheric transmittance: τ = 0.7^(AM^0.678) (Meinel model)`)}
+${eq(`Air mass: AM = 1/(sin(α) + 0.50572·(α°+6.08)^−1.6364) (Kasten-Young)`)}
+${eq(`Ground annual avg (with atmos) ≈ ${(SOLAR_CONST*groundYearAvg(true)).toFixed(0)} W/m²`)}
+${eq(`Ground annual avg (no atmos) ≈ ${(SOLAR_CONST*groundYearAvg(false)).toFixed(0)} W/m² (= daylight fraction × 1361)`)}
+${eq(res(`Space advantage: ${(spYrNoAtm/groundYearAvg(false)).toFixed(1)}× (no atmos) / ${(spYrAtm/groundYearAvg(true)).toFixed(1)}× (both with atmos)`))}
+${FULL_SUN_ALT?`<div class="note">Full year-round sunlight at ≥ ${FULL_SUN_ALT} km (dawn-dusk SSO). All W/m² values are incident flux assuming perfect capture (no panel efficiency losses).</div>`:''}
+</div>`;
+}
+
+// ═══════════════ ANIMATION ═══════════════
+const clock3=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock3.getDelta();
+
+  // Advance sim time
+  if(speedMode!=='pause')simTime+=dt*timeScale;
+  const doy=(simTime/86400)%365.25;
+  const decl=sunDecl(doy);
+  const sunDir=getSunDir(decl);
+  const earthAngle=(simTime/86400)*Math.PI*2;
+
+  // Camera transition
+  if(transitioning){
+    transProg=Math.min(1,transProg+dt/.9);const e=ease(transProg);
+    camera.position.lerpVectors(fromCam,toCam,e);controls.target.lerpVectors(fromTgt,toTgt,e);
+    camera.near=fromNear+(toNear-fromNear)*e;camera.far=fromFar+(toFar-fromFar)*e;
+    camera.updateProjectionMatrix();camera.lookAt(controls.target);
+    if(transProg>=1){transitioning=false;controls.enabled=true}
+  }else{controls.update()}
+
+  // Frame rotation
+  if(frameMode==='sun'){
+    earthMesh.rotation.y=earthAngle;cloudMesh.rotation.y=earthAngle*1.02;
+    inertialFrame.rotation.y=0;
+  }else{
+    earthMesh.rotation.y=0;cloudMesh.rotation.y=0;
+    inertialFrame.rotation.y=-earthAngle;
+  }
+
+  // Sun light
+  sunLight.position.copy(sunDir.clone().multiplyScalar(100));
+
+  // Shadow
+  if(shadowCyl.visible){
+    const d=sunDir.clone().negate();
+    shadowCyl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d);
+    shadowCyl.position.copy(d.clone().multiplyScalar(10));
+  }
+
+  // Sun indicator
+  if(sunInd.visible){sunInd.position.copy(sunDir.clone().multiplyScalar(1+2200/Re));
+    labels.sunDir.visible=true;labels.sunDir.position.copy(sunDir.clone().multiplyScalar(1+1800/Re))}
+
+  // Update orbit colors
+  if(ssoOrbit.visible)updateOrbitColors(ssoOrbit,sunDir);
+  if(issOrbit.visible)updateOrbitColors(issOrbit,sunDir);
+
+  // Satellite positions
+  const ssoPer=orbPeriod(ssoAlt),issPer=orbPeriod(408);
+  if(solarArray.visible){
+    const th=(simTime/ssoPer)*Math.PI*2;
+    solarArray.position.copy(orbitPos(ssoR,ssoIncR,ssoRaan,th));
+    solarArray.lookAt(sunDir.clone().multiplyScalar(100));
+    const p=solarArray.position;
+    const flux=spaceFluxAt(p.x,p.y,p.z,sunDir,atmosOn);
+    const pct=flux/SOLAR_CONST;
+    labels.satStatus.position.copy(p.clone().add(new THREE.Vector3(.08,.12,0)));
+    labels.satStatus.element.textContent=pct>=.999?'SUNLIT':pct<=.001?'SHADOW':`PENUMBRA ${(pct*100).toFixed(0)}%`;
+    labels.satStatus.element.style.color=pct>=.999?'#6fc':pct<=.001?'#f66':'#fc8';
+  }
+  if(issSat.visible){
+    const th=(simTime/issPer)*Math.PI*2;
+    issSat.position.copy(orbitPos(1+408/Re,51.6*DEG,0,th));
+    const p=issSat.position;
+    const flux=spaceFluxAt(p.x,p.y,p.z,sunDir,atmosOn);
+    const pct=flux/SOLAR_CONST;
+    labels.satStatus.position.copy(p.clone().add(new THREE.Vector3(.08,.12,0)));
+    labels.satStatus.element.textContent=pct>=.999?'SUNLIT':pct<=.001?'SHADOW':`PENUMBRA ${(pct*100).toFixed(0)}%`;
+    labels.satStatus.element.style.color=pct>=.999?'#6fc':pct<=.001?'#f66':'#fc8';
+  }
+
+  // GEO sats
+  for(let i=0;i<3;i++){if(!geoSats[i].visible)continue;const a=simTime*.00005+i*Math.PI*2/3;geoSats[i].position.set(Math.cos(a)*geoR,0,Math.sin(a)*geoR)}
+
+  // LA label — track marker world position
+  {const wp=new THREE.Vector3();laMarker.getWorldPosition(wp);
+    labels.laLabel.position.copy(wp);labels.laLabel.position.y+=.07;
+    labels.laLabel.visible=currentView!=='solar';}
+
+  // Sun POV: keep camera behind Sun direction (smooth follow)
+  if(currentView==='sunpov'&&!transitioning){
+    const sd=sunDir.clone().multiplyScalar(5);sd.y+=.3;
+    camera.position.lerp(sd,.05);controls.target.set(0,0,0);
+  }
+
+  // Solar markers
+  if(sunMkr.visible){sunMkr.position.set(AU,0,0);earthMkr.position.set(0,0,0)}
+
+  // Render
+  starCam.position.copy(camera.position);starCam.quaternion.copy(camera.quaternion);starCam.aspect=camera.aspect;starCam.updateProjectionMatrix();
+  renderer.clear();renderer.render(starScene,starCam);renderer.clearDepth();renderer.render(scene,camera);labelRenderer.render(scene,camera);
+
+  // Sync day-of-year slider with simulation time
+  {const curDoy=Math.floor(((simTime/86400)%365.25+365.25)%365.25);
+   const sl=document.getElementById('doy-slider');
+   if(document.activeElement!==sl){sl.value=curDoy;
+     let d2=curDoy,mi2=0;while(d2>=MDAYS[mi2]&&mi2<11){d2-=MDAYS[mi2];mi2++}
+     document.getElementById('doy-val').textContent=`${MONTHS[mi2]} ${d2+1}`;}}
+
+  // UI updates (throttled)
+  if(Math.floor(simTime*10)%3===0){updateDashboard(sunDir);updateClock()}
+}
+
+// ═══════════════ EVENTS ═══════════════
+document.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{showSunScale=false;document.getElementById('sun-on').classList.remove('active');document.getElementById('sun-off').classList.add('active');setView(b.dataset.v)}));
+document.querySelectorAll('[data-sat]').forEach(b=>b.addEventListener('click',()=>{
+  activeSat=b.dataset.sat;document.querySelectorAll('.stb').forEach(x=>x.classList.toggle('active',x.dataset.sat===activeSat));
+  updateSatVis();cachedSSOAvg=null;cachedISSAvg=null}));
+document.querySelectorAll('[data-sp]').forEach(b=>b.addEventListener('click',()=>{
+  speedMode=b.dataset.sp;timeScale=speedMode==='day'?SPEED_DAY:0;
+  document.querySelectorAll('[data-sp]').forEach(x=>x.classList.toggle('active',x.dataset.sp===speedMode))}));
+document.getElementById('frame-sun').addEventListener('click',()=>{frameMode='sun';document.getElementById('frame-sun').classList.add('active');document.getElementById('frame-earth').classList.remove('active')});
+document.getElementById('frame-earth').addEventListener('click',()=>{frameMode='earth';document.getElementById('frame-earth').classList.add('active');document.getElementById('frame-sun').classList.remove('active')});
+document.getElementById('sun-off').addEventListener('click',()=>{showSunScale=false;document.getElementById('sun-off').classList.add('active');document.getElementById('sun-on').classList.remove('active');if(currentView==='leo')setView('leo')});
+document.getElementById('sun-on').addEventListener('click',()=>{showSunScale=true;document.getElementById('sun-on').classList.add('active');document.getElementById('sun-off').classList.remove('active');if(currentView==='leo')setView('leo')});
+document.getElementById('atm-off').addEventListener('click',()=>{atmosOn=false;document.getElementById('atm-off').classList.add('active');document.getElementById('atm-on').classList.remove('active');cSSOYr=null;cISSYr=null;cachedGndYrAvg=null;cachedGndYrWx=null});
+document.getElementById('atm-on').addEventListener('click',()=>{atmosOn=true;document.getElementById('atm-on').classList.add('active');document.getElementById('atm-off').classList.remove('active');cSSOYr=null;cISSYr=null;cachedGndYrAvg=null;cachedGndYrWx=null});
+document.getElementById('wx-off').addEventListener('click',()=>{weatherOn=false;document.getElementById('wx-off').classList.add('active');document.getElementById('wx-on').classList.remove('active');cachedGndYrWx=null});
+document.getElementById('wx-on').addEventListener('click',()=>{weatherOn=true;document.getElementById('wx-on').classList.add('active');document.getElementById('wx-off').classList.remove('active');cachedGndYrWx=null});
+document.getElementById('atm-info-btn').addEventListener('click',(e)=>{e.stopPropagation();document.getElementById('atm-info').classList.toggle('open');document.getElementById('wx-info').classList.remove('open')});
+document.getElementById('wx-info-btn').addEventListener('click',(e)=>{e.stopPropagation();document.getElementById('wx-info').classList.toggle('open');document.getElementById('atm-info').classList.remove('open')});
+document.addEventListener('click',(e)=>{
+  ['atm-info','wx-info'].forEach(id=>{const el=document.getElementById(id);if(el.classList.contains('open')&&!el.contains(e.target)&&e.target.id!==id.replace('info','info-btn'))el.classList.remove('open')});
+});
+document.getElementById('alt-slider').addEventListener('input',e=>{
+  ssoAlt=parseInt(e.target.value);document.getElementById('alt-val').textContent=ssoAlt+' km';
+  rebuildSSOOrbit();cachedSSOAvg=null;cSSOYr=null;
+  const note=document.getElementById('alt-note');
+  if(FULL_SUN_ALT&&ssoAlt>=FULL_SUN_ALT)note.textContent='Full year-round sunlight!';
+  else if(FULL_SUN_ALT)note.textContent=`Full sun at ≥${FULL_SUN_ALT} km`;
+  else note.textContent='';
+});
+function altValClick(){
+  const el=document.getElementById('alt-val');
+  if(!el)return;
+  const cur=ssoAlt;
+  const inp=document.createElement('input');
+  inp.type='number';inp.className='ctrl-val-input';inp.value=cur;inp.min=400;inp.max=2000;inp.step=10;
+  el.replaceWith(inp);inp.focus();inp.select();
+  let committed=false;
+  const commit=()=>{
+    if(committed)return;committed=true;
+    let v=parseInt(inp.value)||600;
+    v=Math.max(400,Math.min(2000,Math.round(v/10)*10));
+    ssoAlt=v;
+    const div=document.createElement('div');div.className='ctrl-val';div.id='alt-val';div.textContent=v+' km';
+    inp.replaceWith(div);
+    document.getElementById('alt-slider').value=v;
+    rebuildSSOOrbit();cachedSSOAvg=null;cSSOYr=null;
+    const note=document.getElementById('alt-note');
+    if(FULL_SUN_ALT&&v>=FULL_SUN_ALT)note.textContent='Full year-round sunlight!';
+    else if(FULL_SUN_ALT)note.textContent=`Full sun at ≥${FULL_SUN_ALT} km`;
+    else note.textContent='';
+    div.addEventListener('click',altValClick);
+  };
+  const cancel=()=>{
+    if(committed)return;committed=true;
+    const div=document.createElement('div');div.className='ctrl-val';div.id='alt-val';div.textContent=cur+' km';
+    inp.replaceWith(div);div.addEventListener('click',altValClick);
+  };
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')commit();if(e.key==='Escape')cancel();});
+  inp.addEventListener('blur',commit);
+}
+document.getElementById('alt-val').addEventListener('click',altValClick);
+document.getElementById('doy-slider').addEventListener('input',e=>{
+  const doyTarget=parseInt(e.target.value);
+  // Preserve time-of-day, change only the day
+  const todSec=((simTime%86400)+86400)%86400;
+  simTime=doyTarget*86400+todSec;
+  // Update label
+  let d=doyTarget,mi=0;while(d>=MDAYS[mi]&&mi<11){d-=MDAYS[mi];mi++}
+  document.getElementById('doy-val').textContent=`${MONTHS[mi]} ${d+1}`;
+  // Clear caches since day changed
+  cSSOYr=null;cISSYr=null;cachedGndYrAvg=null;
+});
+document.getElementById('math-btn').addEventListener('click',()=>{updateMath();document.getElementById('math-panel').classList.add('open')});
+document.getElementById('math-close').addEventListener('click',()=>document.getElementById('math-panel').classList.remove('open'));
+window.addEventListener('resize',()=>{const w=innerWidth,h=innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();starCam.aspect=w/h;starCam.updateProjectionMatrix();renderer.setSize(w,h);labelRenderer.setSize(w,h)});
+
+// ═══════════════ INIT ═══════════════
+if(FULL_SUN_ALT)document.getElementById('alt-note').textContent=`Full sun at ≥${FULL_SUN_ALT} km`;
+setView('leo',true);animate();
+</script>
+</body>
+</html>
