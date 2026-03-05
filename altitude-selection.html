@@ -55,6 +55,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .summary-item .value.warn{color:var(--orange)}
 .summary-item .value.bad{color:var(--red)}
 
+.assumptions-toggle{font-size:.72rem;padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.assumptions-toggle:hover,.assumptions-toggle.active{border-color:var(--blue);color:var(--blue);background:rgba(88,166,255,.08)}
+.assumptions-panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin:0 20px 16px;padding:14px 18px;display:none}
+.assumptions-panel.open{display:block}
+.assumptions-panel h4{font-size:.78rem;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+.assum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px 24px}
+.assum-row{display:flex;align-items:center;gap:6px;font-size:.75rem}
+.assum-row label{color:var(--text2);min-width:120px;white-space:nowrap}
+.assum-row input[type=range]{width:80px;accent-color:var(--blue)}
+.assum-row input[type=number]{width:60px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:.72rem;font-family:var(--mono);text-align:right}
+.assum-row .aval{font-family:var(--mono);color:var(--text);min-width:45px;text-align:right}
+.src-btn{font-size:.6rem;width:16px;height:16px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;transition:all .15s}
+.src-btn:hover,.src-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(88,166,255,.08)}
+.src-tip{display:none;font-size:.68rem;color:var(--text3);padding:4px 8px;margin-top:2px;background:var(--bg);border-radius:4px;line-height:1.5;grid-column:1/-1}
+.src-tip.open{display:block}
+.assum-section{margin-bottom:12px}
+.assum-section:last-child{margin-bottom:0}
 @media(max-width:900px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -113,6 +130,90 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
     <label>Atmosphere:</label>
     <button id="atmos-on" class="atmos-btn active" style="font-size:.72rem;padding:3px 8px;border-radius:4px 0 0 4px;border:1px solid var(--border);background:rgba(63,185,80,.15);color:var(--green);cursor:pointer">ON</button><button id="atmos-off" class="atmos-btn" style="font-size:.72rem;padding:3px 8px;border-radius:0 4px 4px 0;border:1px solid var(--border);border-left:0;background:var(--bg3);color:var(--text2);cursor:pointer">OFF</button>
   </div>
+  <div class="ctrl-group">
+    <button id="assumptions-btn" class="assumptions-toggle">Assumptions ▾</button>
+  </div>
+</div>
+
+<div class="assumptions-panel" id="assumptions-panel">
+  <div class="assum-section">
+    <h4>Panel & Spacecraft</h4>
+    <div class="assum-grid">
+      <div class="assum-row">
+        <label>C_d (drag coeff)</label>
+        <input type="range" id="a-cd" min="1.5" max="3.0" step="0.1" value="2.2">
+        <span class="aval" id="a-cd-val">2.2</span>
+        <button class="src-btn" data-tip="a-cd-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-cd-tip">Drag coefficient for flat plate in free molecular flow. Standard value 2.2 from Sentman (1961). Range 2.0–2.4 depending on surface accommodation. Used by ESA DRAMA, NASA DAS.</div>
+
+      <div class="assum-row">
+        <label>Reflectivity</label>
+        <input type="range" id="a-refl" min="0" max="0.9" step="0.05" value="0.3">
+        <span class="aval" id="a-refl-val">0.30</span>
+        <button class="src-btn" data-tip="a-refl-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-refl-tip">Panel surface reflectivity (specular + diffuse). Affects SRP force: F = P×A×(1+r). Solar cells ~0.1–0.2, cover glass ~0.3, typical array average ~0.3. Source: Montenbruck & Gill (Satellite Orbits), Table 3.4.</div>
+
+      <div class="assum-row">
+        <label>Degradation (%/yr)</label>
+        <input type="range" id="a-degrad" min="0" max="5" step="0.1" value="1.5">
+        <span class="aval" id="a-degrad-val">1.5</span>
+        <button class="src-btn" data-tip="a-degrad-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-degrad-tip">Annual panel efficiency loss from radiation, thermal cycling, UV. Triple-junction GaAs in LEO: ~1–3%/year. 1.5% is moderate for 600–700 km with no eclipse cycling. Source: Spectrolab (ITJ cell data), NASA LILT testing, ESA ECSS-E-ST-20-08C.</div>
+    </div>
+  </div>
+
+  <div class="assum-section">
+    <h4>Propulsion</h4>
+    <div class="assum-grid">
+      <div class="assum-row">
+        <label>Hall Isp (s)</label>
+        <input type="range" id="a-isp" min="800" max="5000" step="100" value="1800">
+        <span class="aval" id="a-isp-val">1,800</span>
+        <button class="src-btn" data-tip="a-isp-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-isp-tip">Specific impulse of the Hall effect thruster. Ranges: SPT-100 ~1,600s, BPT-4000 ~2,000s, SPT-140 ~1,770s, Starlink krypton thrusters ~800–1,500s. Higher Isp = less propellant but more power needed. Source: Aerojet Rocketdyne, Fakel, Busek datasheets.</div>
+
+      <div class="assum-row">
+        <label>Thrust eff (mN/kW)</label>
+        <input type="range" id="a-mnkw" min="20" max="80" step="1" value="50">
+        <span class="aval" id="a-mnkw-val">50</span>
+        <button class="src-btn" data-tip="a-mnkw-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-mnkw-tip">Thrust per unit electrical input power. BHT-600: ~50 mN/kW, SPT-100: ~55 mN/kW, BPT-4000: ~60 mN/kW. Lower values for higher-Isp thrusters. Source: Busek, Aerojet Rocketdyne product data.</div>
+
+      <div class="assum-row">
+        <label>SRP correction (%)</label>
+        <input type="range" id="a-srp" min="0" max="50" step="1" value="15">
+        <span class="aval" id="a-srp-val">15%</span>
+        <button class="src-btn" data-tip="a-srp-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-srp-tip">Fraction of raw SRP acceleration that requires active station-keeping. Most SRP effect in LEO is absorbed by frozen orbit design (J2 precession cancels eccentricity drift). 0% = perfectly frozen orbit. 10–20% = typical estimate for residual inclination/eccentricity trim. This is the LARGEST UNCERTAINTY in the model. Source: Montenbruck & Gill Ch. 3, Milani et al. (1987), mission experience from ESA GOCE, GRACE.</div>
+    </div>
+  </div>
+
+  <div class="assum-section">
+    <h4>Earth Comparison</h4>
+    <div class="assum-grid">
+      <div class="assum-row">
+        <label>Best desert (%)</label>
+        <input type="range" id="a-ebest" min="10" max="35" step="0.1" value="20.9">
+        <span class="aval" id="a-ebest-val">20.9%</span>
+        <button class="src-btn" data-tip="a-ebest-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-ebest-tip">Annual-average GHI as % of AM0 solar constant (1361 W/m²). Best desert sites (Atacama, Sahara): ~2,500 kWh/m²/yr = 285 W/m² = 20.9%. Includes day/night, atmosphere, clouds. Source: PVGIS (EU JRC), NREL NSRDC, Solargis.</div>
+
+      <div class="assum-row">
+        <label>Global avg (%)</label>
+        <input type="range" id="a-eavg" min="5" max="25" step="0.1" value="12.6">
+        <span class="aval" id="a-eavg-val">12.6%</span>
+        <button class="src-btn" data-tip="a-eavg-tip">?</button>
+      </div>
+      <div class="src-tip" id="a-eavg-tip">Global land average GHI: ~1,500 kWh/m²/yr = 171 W/m² = 12.6% of 1361. Includes all latitudes, cloud cover, seasons. Source: World Bank Global Solar Atlas, NASA POWER.</div>
+    </div>
+  </div>
 </div>
 
 <div class="summary-bar" id="summary-bar"></div>
@@ -139,7 +240,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
   </div>
   <div class="chart-card">
     <h3 style="display:flex;align-items:center;justify-content:space-between">
-      <span>Atmospheric Drag vs Altitude <span style="color:var(--text2);font-weight:400;font-size:.75rem;margin-left:6px">Sun-pointing panel drag & station-keeping</span></span>
+      <span>Station-keeping ΔV vs Altitude <span style="color:var(--text2);font-weight:400;font-size:.75rem;margin-left:6px">Drag + SRP for sun-pointing panels</span></span>
       <button id="drag-math-btn" style="font-size:.68rem;padding:3px 10px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;white-space:nowrap">Math Audit</button>
     </h3>
     <div class="chart-container" id="chart-drag"></div>
@@ -201,6 +302,20 @@ const J2 = 1.08263e-3;    // J2 perturbation (EGM96)
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
 const SOLAR_CONST = 1361; // W/m², AM0
+
+// ═══════════════════════════════════════════════════════════════
+//  MODEL ASSUMPTIONS — all customizable via the Assumptions panel
+// ═══════════════════════════════════════════════════════════════
+window._assum = {
+  Cd: 2.2,               // drag coefficient (flat plate, free molecular flow)
+  reflectivity: 0.3,     // panel surface reflectivity (0=absorbing, 1=mirror)
+  hallIsp: 1800,          // Hall thruster specific impulse (s)
+  hallMnKw: 50,           // Hall thruster efficiency (mN per kW electrical)
+  srpResidualFrac: 0.15,  // fraction of SRP that needs active correction (rest is frozen orbit)
+  degradation: 1.5,       // panel degradation rate (%/year)
+  earthBestPct: 20.9,     // Earth best desert capacity factor (% of solar constant)
+  earthAvgPct: 12.6,      // Earth global average capacity factor (% of solar constant)
+};
 
 // ═══════════════════════════════════════════════════════════════
 //  ORBITAL MECHANICS (from Altitude vs Sun.html — proven code)
@@ -450,12 +565,9 @@ let atmosOn = true; // default: atmosphere ON
 let optimalAlt = 500; // computed by updateCombined
 let showEarthCompare = false;
 
-// Earth surface annual-average solar as % of 1361 W/m² (AM0 solar constant)
-// Best desert (Atacama/Sahara): GHI ~2500 kWh/m²/yr = 285 W/m² → 20.9%
-// US average: ~1600 kWh/m²/yr = 183 W/m² → 13.4%
-// Global land average: ~1500 kWh/m²/yr = 171 W/m² → 12.6%
-const EARTH_BEST_PCT = 20.9;
-const EARTH_AVG_PCT = 12.6;
+// Earth solar percentages read from _assum (customizable via Assumptions panel)
+function earthBestPct() { return window._assum.earthBestPct; }
+function earthAvgPct() { return window._assum.earthAvgPct; }
 
 // ═══════════════════════════════════════════════════════════════
 //  DEBRIS MODEL — NASA90 analytical (SPENVIS) + empirical calibration
@@ -699,7 +811,7 @@ function sunPointingCrossFraction(alt_km, orbitType) {
 
 // Sun-pointing drag model: full calculation returning detailed breakdown
 function sunPointingDrag(alt_km, area_m2, massPerM2, solarCycle, orbitType, efficiency) {
-  const Cd = 2.2;
+  const Cd = window._assum?.Cd ?? 2.2;
   const rho = atmDensity(alt_km, solarCycle);
   const v_kms = orbVelocity(alt_km);
   const v = v_kms * 1000; // m/s
@@ -722,21 +834,37 @@ function sunPointingDrag(alt_km, area_m2, massPerM2, solarCycle, orbitType, effi
   // Power generated
   const power_W = area_m2 * SOLAR_CONST * (efficiency / 100);
 
-  // Propellant mass (Hall thruster Isp = 1800s)
-  const Isp = 1800;
+  // Propellant mass (Hall thruster)
+  const Isp = window._assum?.hallIsp ?? 1800;
   const g0 = 9.80665;
   const propellant_kg_yr = totalMass * (1 - Math.exp(-dv_year / (Isp * g0)));
 
   // Power needed for station-keeping (Hall thruster: ~50 mN/kW)
   const thrust_needed = F_drag; // N, continuous
-  const sk_power_W = thrust_needed / 0.05; // W (50 mN per kW = 0.05 N/kW)
+  const hallEff = (window._assum?.hallMnKw ?? 50) / 1000; // N per kW (50 mN/kW = 0.05 N/kW)
+  const sk_power_kW = thrust_needed / hallEff; // kW
+  const sk_power_W = sk_power_kW * 1000; // W
   const sk_power_frac = power_W > 0 ? sk_power_W / power_W : 0;
+
+  // Solar Radiation Pressure — dominant perturbation for large lightweight arrays
+  const reflectivity = window._assum?.reflectivity ?? 0.3;
+  const P_SRP = SOLAR_CONST / 3e8; // N/m², ~4.54e-6
+  const F_SRP = P_SRP * area_m2 * (1 + reflectivity); // N, full panel area faces sun
+  const a_SRP = F_SRP / totalMass; // m/s²
+  // SRP is mostly periodic (frozen orbit absorbs eccentricity via J2 precession)
+  // but residual corrections needed for inclination drift, RAAN drift, eccentricity trim
+  // Typical LEO experience: ~10-20% of raw SRP budget needs active correction
+  const srpResidualFrac = window._assum?.srpResidualFrac ?? 0.15;
+  const dv_srp_year = a_SRP * secPerYear * srpResidualFrac;
+  const dv_total = dv_year + dv_srp_year;
 
   return {
     alt: alt_km, area: area_m2, massPerM2, totalMass,
     rho, v_kms, v, Cd,
     crossFrac, A_cross, F_drag, a_drag,
-    dv_year, power_W, efficiency,
+    dv_year, dv_srp_year, dv_total,
+    power_W, efficiency,
+    F_SRP, a_SRP, srpResidualFrac, reflectivity,
     propellant_kg_yr, Isp, sk_power_W, sk_power_frac,
     solarCycle,
   };
@@ -854,15 +982,15 @@ function updateSunshine() {
   // Earth surface comparison text
   const earthEl = document.getElementById('earth-compare-text');
   if (showEarthCompare && optSunlit !== null) {
-    const multBest = (optSunlit / EARTH_BEST_PCT).toFixed(1);
-    const multAvg = (optSunlit / EARTH_AVG_PCT).toFixed(1);
-    // Earth best desert: ~12h max night ≈ 720 min "eclipse"
+    const eBest = earthBestPct(), eAvg = earthAvgPct();
+    const multBest = (optSunlit / eBest).toFixed(1);
+    const multAvg = (optSunlit / eAvg).toFixed(1);
     earthEl.style.display = 'block';
     earthEl.innerHTML =
       `<span style="color:var(--text2)">Earth surface (0 km):</span> ` +
-      `Best desert ${EARTH_BEST_PCT}% avg (285 W/m²) · ~720 min max night` +
+      `Best desert ${eBest}% avg (${(eBest * 13.61).toFixed(0)} W/m²) · ~720 min max night` +
       `<span style="color:var(--text3);margin:0 8px">|</span>` +
-      `Global avg ${EARTH_AVG_PCT}% (171 W/m²)` +
+      `Global avg ${eAvg}% (${(eAvg * 13.61).toFixed(0)} W/m²)` +
       `<span style="color:var(--text3);margin:0 8px">|</span>` +
       `<span style="color:var(--green)">Space advantage: ${multBest}× vs best desert · ${multAvg}× vs global avg</span>`;
   } else {
@@ -1029,25 +1157,36 @@ function updateDrag() {
   const orbitType = s.orbitType === 'all' ? 'sso-dd' : s.orbitType;
   const traces = [];
 
-  // Solar min — sun-pointing model
-  const dvMin = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'min', orbitType, dp.eff).dv_year);
+  // Compute full model at each altitude
+  const modelsMin = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'min', orbitType, dp.eff));
+  const modelsMax = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'max', orbitType, dp.eff));
+  const modelsAvg = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'avg', orbitType, dp.eff));
+
+  // Drag ΔV traces
   traces.push({
-    x: altitudes, y: dvMin, name: 'Solar Min (sun-pointing)',
+    x: altitudes, y: modelsMin.map(m => m.dv_year), name: 'Drag: Solar Min',
     line: { color: '#58a6ff', width: 2 },
   });
-
-  // Solar max — sun-pointing model
-  const dvMax = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'max', orbitType, dp.eff).dv_year);
   traces.push({
-    x: altitudes, y: dvMax, name: 'Solar Max (sun-pointing)',
+    x: altitudes, y: modelsMax.map(m => m.dv_year), name: 'Drag: Solar Max',
     line: { color: '#f85149', width: 2 },
   });
-
-  // Average — sun-pointing model
-  const dvAvg = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, 'avg', orbitType, dp.eff).dv_year);
   traces.push({
-    x: altitudes, y: dvAvg, name: 'Average (sun-pointing)',
+    x: altitudes, y: modelsAvg.map(m => m.dv_year), name: 'Drag: Average',
     line: { color: '#d29922', width: 2, dash: 'dash' },
+  });
+
+  // SRP ΔV trace (altitude-independent for same A/m — flat line)
+  const srpDv = modelsAvg[0].dv_srp_year; // same at all altitudes
+  traces.push({
+    x: [200, 2000], y: [srpDv, srpDv], name: `SRP (${(window._assum.srpResidualFrac*100).toFixed(0)}% residual)`,
+    line: { color: '#bc8cff', width: 2, dash: 'dash' }, mode: 'lines',
+  });
+
+  // Total ΔV (drag + SRP) average
+  traces.push({
+    x: altitudes, y: modelsAvg.map(m => m.dv_total), name: 'Total (drag+SRP)',
+    line: { color: '#39d2c0', width: 2.5 },
   });
 
   // Broadside comparison (worst case: full area faces ram)
@@ -1179,24 +1318,61 @@ function updateDragMathAudit() {
                   = <b>${d.propellant_kg_yr < 0.01 ? d.propellant_kg_yr.toExponential(2) : d.propellant_kg_yr.toFixed(2)} kg/year</b>
 
   Continuous thrust needed  = ${d.F_drag.toExponential(3)} N
-  Hall thruster efficiency  ≈ 50 mN/kW (0.05 N per kW of electrical input)
-  Power for station-keeping = ${d.sk_power_W < 0.01 ? d.sk_power_W.toExponential(2) : d.sk_power_W.toFixed(2)} W
+  Hall thruster efficiency  ≈ ${window._assum.hallMnKw} mN/kW (${(window._assum.hallMnKw/1000).toFixed(3)} N per kW of electrical input)
+  Power for station-keeping = ${d.sk_power_W < 1 ? d.sk_power_W.toExponential(2) : d.sk_power_W.toFixed(1)} W (${(d.sk_power_W/1000).toFixed(3)} kW)
   Fraction of generated power = <b>${(d.sk_power_frac * 100).toFixed(4)}%</b>
 ${d.sk_power_frac < 0.01 ? '  ✓ Negligible — self-powered station-keeping is trivially feasible.' :
   d.sk_power_frac < 0.10 ? '  ✓ Manageable — small fraction of generated power.' :
   '  ⚠ Significant — large fraction of power consumed by station-keeping!'}
 
-<b>WHAT DRAG DEPENDS ON</b>
-  1. Atmospheric density (ρ) — exponential with altitude, 10-100× solar cycle variation
-  2. Orbital velocity (v²) — ~7.5 km/s in LEO, varies weakly with altitude
-  3. Cross-sectional area (A_cross) — NOT total panel area for sun-pointing panels
-  4. Drag coefficient (C_d) — ~2.2 for flat plate (free molecular flow)
-  5. Area-to-mass ratio (A/m) — lighter panels = more ΔV per year
+<b>═══ SOLAR RADIATION PRESSURE (SRP) ═══</b>
+
+  ⚠ <b>SRP is the dominant perturbation force for large lightweight arrays.</b>
+
+  P_SRP = S₀ / c = ${SOLAR_CONST} / 3×10⁸ = <b>${(SOLAR_CONST / 3e8).toExponential(3)} N/m²</b>
+  Reflectivity (r)         = ${d.reflectivity}
+  F_SRP = P_SRP × A × (1 + r)
+        = ${(SOLAR_CONST / 3e8).toExponential(3)} × ${d.area.toLocaleString()} × ${(1 + d.reflectivity).toFixed(1)}
+        = <b>${d.F_SRP.toExponential(3)} N</b>
+
+  <b>Force comparison:</b>
+    F_SRP  = ${d.F_SRP.toExponential(3)} N
+    F_drag = ${d.F_drag.toExponential(3)} N
+    Ratio: <b>SRP is ${(d.F_SRP / d.F_drag).toFixed(1)}× larger than drag</b>
+
+  <b>SRP station-keeping budget:</b>
+    Raw SRP acceleration = ${d.a_SRP.toExponential(3)} m/s²
+    Raw ΔV/year if fully counteracted = ${(d.a_SRP * 365.25 * 86400).toFixed(1)} m/s/year
+    BUT: most SRP is absorbed by frozen orbit (J2 precession cancels eccentricity growth)
+    Residual correction fraction = ${(d.srpResidualFrac * 100).toFixed(0)}% (adjustable in Assumptions)
+    <b>SRP ΔV/year = ${d.dv_srp_year.toFixed(2)} m/s/year</b>
+
+  <b>Total station-keeping ΔV:</b>
+    Drag ΔV = ${d.dv_year < 0.01 ? d.dv_year.toExponential(3) : d.dv_year.toFixed(3)} m/s/year
+    SRP ΔV  = ${d.dv_srp_year.toFixed(3)} m/s/year
+    <b>Total   = ${d.dv_total.toFixed(3)} m/s/year</b>
+
+  ⚠ The SRP residual fraction (${(d.srpResidualFrac * 100).toFixed(0)}%) is an estimate.
+  Real SRP station-keeping depends on orbit design (frozen eccentricity),
+  control strategy, and acceptable eccentricity/inclination drift tolerances.
+  This is the primary gap in the current model.
+
+<b>KNOWN LIMITATIONS</b>
+  1. SRP residual fraction is estimated, not derived from full orbit propagation
+  2. Total mass = panel mass only (no bus, avionics, propulsion dry mass)
+     → Understates mass → overstates ΔV for drag (conservative for drag)
+     → But makes power fraction look artificially good
+  3. Panel efficiency is BOL (${d.efficiency}%) with no degradation, packing, or cosine losses
+  4. Eclipse power loss not included (relevant below 574 km)
+  5. No thermal derating of panels (equilibrium temp ~60-80°C reduces efficiency ~7-10%)
 
 <b>SOURCES</b>
   Density: NRLMSISE-00 (Picone et al., 2002)
-  Drag coefficient: Sentman (1961), free molecular flow theory
+  Drag coefficient: Sentman (1961), free molecular flow theory, C_d=${d.Cd}
   Hall thruster Isp: BPT-4000 (Aerojet Rocketdyne), SPT-140 (Fakel)
+  Hall thruster efficiency: Busek BHT-600, ~50 mN/kW typical for modern LEO thrusters
+  SRP pressure: S₀/c, standard — Milani et al. (1987)
+  Frozen orbit: Brouwer (1959), Lyddane (1963), used in Starlink orbit design
   Cross-section geometry: First principles orbital mechanics`;
 }
 
@@ -1213,7 +1389,7 @@ function updateCombined() {
 
   const debrisData = altitudes.map(a => debrisFlux(1.0, a, inc, s.year, s.solarF107));
   const dp = getDragParams();
-  const dragData = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, s.solarCycle, effectiveOrbit, dp.eff).dv_year);
+  const dragData = altitudes.map(a => sunPointingDrag(a, dp.area, dp.massPerM2, s.solarCycle, effectiveOrbit, dp.eff).dv_total);
 
   // Normalize each to 0-1 where 0 = best, 1 = worst
   // Sunshine penalty: (1 - sunlit_fraction) — 0 means 100% sunlit
@@ -1245,7 +1421,7 @@ function updateCombined() {
   const traces = [
     { x: altitudes, y: sunPenalty, name: 'Eclipse penalty', line: { color: '#d29922', width: 1.5 }, fill: 'tozeroy', fillcolor: 'rgba(210,153,34,0.05)' },
     { x: altitudes, y: debrisPenalty, name: 'Debris penalty', line: { color: '#f85149', width: 1.5 }, fill: 'tozeroy', fillcolor: 'rgba(248,81,73,0.05)' },
-    { x: altitudes, y: dragPenalty, name: 'Drag penalty', line: { color: '#58a6ff', width: 1.5 }, fill: 'tozeroy', fillcolor: 'rgba(88,166,255,0.05)' },
+    { x: altitudes, y: dragPenalty, name: 'Drag+SRP penalty', line: { color: '#58a6ff', width: 1.5 }, fill: 'tozeroy', fillcolor: 'rgba(88,166,255,0.05)' },
     { x: altitudes, y: combined, name: 'Combined (avg)', line: { color: '#3fb950', width: 3 } },
   ];
 
@@ -1289,7 +1465,9 @@ function updateSummary(bestAlt, s) {
   const flux1cm = debrisFlux(1.0, bestAlt, inc, s.year, s.solarF107);
   const dp = getDragParams();
   const dragResult = sunPointingDrag(bestAlt, dp.area, dp.massPerM2, s.solarCycle, effectiveOrbit, dp.eff);
-  const dv = dragResult.dv_year;
+  const dvDrag = dragResult.dv_year;
+  const dvSrp = dragResult.dv_srp_year;
+  const dvTotal = dragResult.dv_total;
   const batteryWhPerKw = eclipse < 0.1 ? 0 : (SOLAR_CONST * sunlit) * (eclipse / 60);
 
   const bar = document.getElementById('summary-bar');
@@ -1317,8 +1495,9 @@ function updateSummary(bestAlt, s) {
         `<span style="font-size:.68rem;color:var(--purple);font-family:var(--mono)">${(flux1cm * 1e9 / (1361 * 0.30)).toFixed(1)} /GW/yr</span>` : ''}
     </div>
     <div class="summary-item">
-      <span class="label">Station-keeping ΔV</span>
-      <span class="value ${dv < 50 ? 'good' : dv < 300 ? 'warn' : 'bad'}">${dv < 0.01 ? '< 0.01' : dv < 10 ? dv.toFixed(2) : dv.toFixed(0)} m/s/yr</span>
+      <span class="label">ΔV (drag+SRP)</span>
+      <span class="value ${dvTotal < 50 ? 'good' : dvTotal < 300 ? 'warn' : 'bad'}">${dvTotal < 0.01 ? '< 0.01' : dvTotal < 10 ? dvTotal.toFixed(2) : dvTotal.toFixed(0)} m/s/yr</span>
+      <span style="font-size:.62rem;color:var(--text3);font-family:var(--mono)">drag ${dvDrag < 0.01 ? '<0.01' : dvDrag.toFixed(1)} + SRP ${dvSrp.toFixed(1)}</span>
     </div>
     <div class="summary-item">
       <span class="label">Year</span>
@@ -1398,6 +1577,59 @@ document.getElementById('earth-compare-toggle').addEventListener('change', e => 
   showEarthCompare = e.target.checked;
   updateSunshine();
 });
+
+// ── Assumptions panel ──
+document.getElementById('assumptions-btn').addEventListener('click', () => {
+  const panel = document.getElementById('assumptions-panel');
+  const btn = document.getElementById('assumptions-btn');
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('active', isOpen);
+  btn.textContent = isOpen ? 'Assumptions ▴' : 'Assumptions ▾';
+});
+
+// ? source buttons: toggle the tip associated with each
+document.querySelectorAll('.src-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tipId = btn.getAttribute('data-tip');
+    if (!tipId) return;
+    const tip = document.getElementById(tipId);
+    if (!tip) return;
+    const isOpen = tip.classList.toggle('open');
+    btn.classList.toggle('active', isOpen);
+  });
+});
+
+// Wire assumption sliders to the _assum object
+function wireAssum(id, key, fmt, suffix) {
+  const el = document.getElementById(id);
+  const valEl = document.getElementById(id + '-val');
+  el.addEventListener('input', () => {
+    const v = parseFloat(el.value);
+    window._assum[key] = v;
+    valEl.textContent = fmt(v) + (suffix || '');
+    updateAll();
+    if (document.getElementById('drag-math-audit').style.display !== 'none') updateDragMathAudit();
+  });
+}
+wireAssum('a-cd', 'Cd', v => v.toFixed(1), '');
+wireAssum('a-refl', 'reflectivity', v => v.toFixed(2), '');
+wireAssum('a-degrad', 'degradation', v => v.toFixed(1), '');
+wireAssum('a-isp', 'hallIsp', v => v.toLocaleString(), '');
+wireAssum('a-mnkw', 'hallMnKw', v => v.toString(), '');
+// SRP slider stores percentage (0-50) but _assum needs fraction (0-0.50)
+(function() {
+  const el = document.getElementById('a-srp');
+  const valEl = document.getElementById('a-srp-val');
+  el.addEventListener('input', () => {
+    const pct = parseFloat(el.value);
+    window._assum.srpResidualFrac = pct / 100;
+    valEl.textContent = pct + '%';
+    updateAll();
+    if (document.getElementById('drag-math-audit').style.display !== 'none') updateDragMathAudit();
+  });
+})();
+wireAssum('a-ebest', 'earthBestPct', v => v.toFixed(1) + '%', '');
+wireAssum('a-eavg', 'earthAvgPct', v => v.toFixed(1) + '%', '');
 
 document.getElementById('debris-per-gw').addEventListener('change', () => {
   updateDebris();

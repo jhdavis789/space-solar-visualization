@@ -443,12 +443,39 @@ Source: NASA Orbital Debris Program Office
 ### 9.2 Solar Radiation Pressure
 
 ```
-P_SRP = S₀ / c ≈ 4.56 μN/m²
+P_SRP = S₀ / c ≈ 4.54 μN/m²
 
 F_SRP = P_SRP × A × (1 + r)  [for reflective surface, r = reflectivity]
 ```
 
-Creates torques when center of pressure ≠ center of mass. Becomes significant for arrays > 10,000 m².
+**SRP is the dominant perturbation force for large lightweight arrays in LEO.** For a 10,000 m² array at 1 kg/m² with r=0.3 at 650 km:
+
+| Force | Magnitude | Notes |
+|-------|-----------|-------|
+| F_SRP | ~0.059 N | Full panel area, constant |
+| F_drag (avg) | ~0.005 N | Sun-pointing cross-section, varies with solar cycle |
+| Ratio | **~12×** | SRP dominates |
+
+**Station-keeping for SRP:**
+
+For a dawn-dusk SSO, most SRP effects are absorbed by a "frozen orbit" design:
+- J2 precession naturally cancels SRP-induced eccentricity growth
+- The eccentricity vector tracks the sun direction (frozen eccentricity)
+- Only residual corrections for inclination drift and eccentricity trim are needed
+
+Estimated residual correction: ~10–20% of raw SRP acceleration budget. This is the **largest uncertainty** in the current station-keeping model. Full orbit propagation needed for definitive answer.
+
+Sources: Montenbruck & Gill (Satellite Orbits) Ch. 3; Milani et al. (1987); Brouwer (1959) frozen orbit theory; mission heritage from ESA GOCE, GRACE.
+
+### 9.3 Thruster Power Requirement
+
+```
+Hall thruster: ~50 mN/kW (0.05 N per kW electrical input)
+Power_W = F_thrust / (50e-3 / 1000)  [convert mN/kW to N/kW]
+       = F_thrust × 20,000  [W per N of thrust]
+```
+
+For F_drag = 0.005 N: Power = 0.005 / 0.05 × 1000 = 100 W (not 0.1 W — watch the kW/W unit conversion).
 
 ---
 

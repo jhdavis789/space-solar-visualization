@@ -192,3 +192,9 @@ Our projects are complementary: we provide the orbital environment analysis they
 - Water scarcity in deserts (cooling towers need water, though dry cooling exists)
 
 **This deserves a side-by-side model on the dashboard: $/FLOP delivered, space vs terrestrial mega-solar, as a function of GPU cost trajectory and launch cost trajectory.**
+
+---
+
+## Open Question: Privatizing Space Debris Tracking Data
+
+The U.S. Space Force (18th Space Defense Squadron) tracks ~30,000+ objects and issues free conjunction warnings to all satellite operators. LeoLabs is already a private company building its own phased-array radar network and selling commercial tracking data. Could someone license the government's catalog itself — buy the commercial distribution rights, add value layers (better alerts, analytics, insurance integration), and charge operators? Every LEO operator needs this data; the customer base is growing exponentially with mega-constellations.
